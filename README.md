@@ -1,5 +1,5 @@
 # Web Scraping: Consulta Amigable MEF
-Este proyecto utiliza Selenium para automatizar la navegación web y extraer datos del portal Consulta Amigable del MEF. Los datos extraídos se guardan en un archivo CSV para su posterior análisis y procesamiento.
+Este proyecto utiliza Selenium para automatizar la navegación web y extraer datos del portal Consulta Amigable del MEF. Los datos extraídos se guardan en un archivo XLSX/CSV para su posterior análisis y procesamiento.
 
 ## 1. Requisitos
 
