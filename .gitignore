@@ -1,0 +1,18 @@
+# Ignorar entornos virtuales
+.venvWS/
+env/
+
+# Ignorar archivos de configuración de editores
+.vscode/
+.idea/
+
+# Ignorar datos crudos o sensibles
+*.json
+
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Archivos de logs
+*.log
