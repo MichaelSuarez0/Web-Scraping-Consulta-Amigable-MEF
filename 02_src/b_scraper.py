@@ -308,11 +308,11 @@ def main():
     Función principal para iniciar el proceso de scraping.
     """
     driver = iniciar_driver()
+    todos_los_datos = []
+    encabezados_municipalidad = []
 
     try:
         navegar_a_pagina(driver, a_config.URL)
-        todos_los_datos = []
-        encabezados_municipalidad = []
 
         for year in a_config.YEARS:
             print(f"Extrayendo datos para el año {year}...")
@@ -324,22 +324,33 @@ def main():
 
             todos_los_datos.extend(datos_anio)
 
-        # Encabezados completos con los metadatos
-        encabezados_completos = a_config.ENCABEZADOS_BASE + encabezados_municipalidad
-
-        # Guardar los datos en Excel
-        guardar_en_excel(
-            os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA),
-            todos_los_datos,
-            encabezados_completos,
-        )
-
-        print(f"¡Extracción y guardado completados en '{a_config.ARCHIVO_SALIDA}'!")
-
     except Exception as e:
         print(f"Se produjo un error en el proceso: {e}")
+        # Guardar los datos recolectados hasta el momento
+        if todos_los_datos:
+            print("Guardando los datos recolectados hasta el momento...")
+            encabezados_completos = (
+                a_config.ENCABEZADOS_BASE + encabezados_municipalidad
+            )
+            guardar_en_excel(
+                os.path.join(a_config.PATH_DATA_RAW, "datos_parciales.xlsx"),
+                todos_los_datos,
+                encabezados_completos,
+            )
+        else:
+            print("No hay datos para guardar.")
 
     finally:
+        # Guardar los datos nuevamente al finalizar si no se guardaron en el except
+        if todos_los_datos:
+            encabezados_completos = (
+                a_config.ENCABEZADOS_BASE + encabezados_municipalidad
+            )
+            guardar_en_excel(
+                os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA),
+                todos_los_datos,
+                encabezados_completos,
+            )
         driver.quit()
         print("Driver cerrado correctamente.")
 

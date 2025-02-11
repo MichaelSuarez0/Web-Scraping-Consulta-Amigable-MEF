@@ -31,7 +31,8 @@ URL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
 
 # 2: Parámetros de Scraping
 
-YEARS = [2024]
+# Años de consulta
+YEARS = list(range(2024, 2026))  # no incluye el límite superior
 # Nombre del archivo de salida
 ARCHIVO_SALIDA = "datos_municipalidades.xlsx"
 # Encabezados base para el archivo de salida (antes de agregar los de la tabla)
