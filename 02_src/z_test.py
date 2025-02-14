@@ -18,53 +18,11 @@ cambiar_frame(driver, "frame0")
 
 # driver.switch_to.default_content()
 
-
-def obtener_encabezados_finales(driver, tabla_id):
-    # Localiza la tabla por su ID y obtiene todas las filas
-    filas_encabezado = driver.find_element(By.ID, tabla_id).find_elements(
-        By.TAG_NAME, "tr"
-    )
-
-    # Extraemos encabezados finales en una sola línea
-    encabezados_finales = [
-        celda.text.strip()
-        for fila in filas_encabezado
-        for celda in fila.find_elements(By.XPATH, ".//td | .//th")
-        if (celda.get_attribute("colspan") in [None, "1"]) and celda.text.strip()
-    ]
-
-    return encabezados_finales
-
-
-def extraer_datos_tabla(driver):
-    # Lista para almacenar los datos extraídos
-    datos_tabla = []
-
-    # Seleccionar todas las filas de la tabla con clase 'Data'
-    filas = driver.find_elements(By.CSS_SELECTOR, "table.Data tr[id^='tr']")
-    print(f"Se encontraron {len(filas)} filas.")
-
-    # Extraer los datos de cada fila
-    for i, fila in enumerate(filas):
-        datos = [td.text.strip() for td in fila.find_elements(By.TAG_NAME, "td")]
-        print(f"Fila {i + 1}: {datos}")
-
-        # Agregar datos solo si la fila tiene contenido
-        if datos:
-            datos_tabla.append(datos)
-
-    return datos_tabla
-
-
 # Lista de años a iterar
 years = [2012, 2013, 2014, 2015]
 
-# Lista principal para almacenar todos los datos
-todos_los_datos = []
-
-
 for year in years:
-    select_option(driver, "ctl00_CPH1_DrpYear", year)  # Seleccionar el año
+    select_option(driver, "ctl00_CPH1_DrpYear", 2021)  # Seleccionar el año
     cambiar_frame(driver, "frame0")
     click_element(driver, "ctl00_CPH1_BtnTipoGobierno")  # Tipo de gobierno
     cambiar_frame(driver, "frame0")
@@ -73,6 +31,8 @@ for year in years:
     click_element(
         driver, "ctl00_CPH1_BtnSubTipoGobierno"
     )  # Subtipo de gobierno (Municipalidades)
+    cambiar_frame(driver, "frame0")
+    click_element(driver, "ctl00_CPH1_RptData_ctl01_TD0")
     cambiar_frame(driver, "frame0")
     click_element(driver, "ctl00_CPH1_BtnDepartamento")  # Departamento
     cambiar_frame(driver, "frame0")

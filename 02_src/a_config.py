@@ -43,12 +43,14 @@ URL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
 # Años de consulta
 YEARS = list(range(2015, 2026))  # no incluye el límite superior
 # Nombre del archivo de salida
-ARCHIVO_SALIDA = "datos_municipalidades.xlsx"
-# Encabezados base para el archivo de salida (antes de agregar los de la tabla)
+ARCHIVO_SALIDA = "EJECUCION_GASTO_MUNICI.xlsx"
+# Nombre del archivo de salida parcial (en caso de error)
+ARCHIVO_SALIDA_PARCIAL = "EJECUCION_GASTO_MUNICI_parcial.xlsx"
+# Encabezados base
 ENCABEZADOS_BASE = ["Año", "Departamento", "Provincia"]
 
 # =====================
 # 3: Parámetros de Procesamiento
 # =====================
 
-ARCHIVO_PROCESADO = "datos_municipalidades_procesado.xlsx"
+ARCHIVO_PROCESADO = "EJECUCION_GASTO_MUNICI_procesado.xlsx"

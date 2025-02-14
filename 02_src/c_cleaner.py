@@ -96,7 +96,7 @@ def numeric_columns(df, columns):
     return df
 
 
-def guardar_en_excel(nombre_archivo, datos):
+def save_data(nombre_archivo, datos):
     """
     Guarda los datos extraídos en un archivo Excel.
     """
@@ -165,9 +165,7 @@ def main():
 
     df = df[cols_orden]
 
-    guardar_en_excel(
-        os.path.join(a_config.PATH_DATA_PRO, a_config.ARCHIVO_PROCESADO), df
-    )
+    save_data(os.path.join(a_config.PATH_DATA_PRO, a_config.ARCHIVO_PROCESADO), df)
 
 
 if __name__ == "__main__":

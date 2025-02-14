@@ -50,15 +50,12 @@ import a_config
 # =====================
 
 
-def iniciar_driver():
+def initialize_driver():
     """
-    Inicializa el driver de Selenium utilizando la configuración de settings.py.
-
-    Returns:
-        webdriver.Chrome: Instancia del navegador Chrome.
+    Inicializa el driver de Selenium.
     """
     try:
-        # Configurar el servicio del WebDriver con la ruta desde settings.py
+        # Configurar el servicio del WebDriver
         service = Service(executable_path=a_config.PATH_DRIVER)
         options = webdriver.ChromeOptions()
 
@@ -73,7 +70,7 @@ def iniciar_driver():
         # Inicializar el driver
         driver = webdriver.Chrome(service=service, options=options)
 
-        # Log opcional para confirmar que se inició correctamente
+        # Log para confirmar que se inició correctamente
         print("Driver iniciado.")
 
         return driver  # Devuelve la instancia del driver
@@ -83,7 +80,10 @@ def iniciar_driver():
         raise
 
 
-def cambiar_frame(driver, nombre_frame, tiempo=10):
+def switch_to_frame(driver, nombre_frame, tiempo=10):
+    """
+    Cambia al frame especificado y verifica que el <body> esté presente
+    """
     try:
         # primero cambiar contenido por defecto
         driver.switch_to.default_content()
@@ -92,7 +92,7 @@ def cambiar_frame(driver, nombre_frame, tiempo=10):
         WebDriverWait(driver, tiempo).until(
             EC.frame_to_be_available_and_switch_to_it((By.NAME, nombre_frame))
         )
-        print(f"Frame '{nombre_frame}' disponible y cambiado exitosamente.")
+        print(f"Cambiado a '{nombre_frame}'.")
 
         # Verificar que el <body> del frame esté presente
         WebDriverWait(driver, 10).until(
@@ -104,38 +104,39 @@ def cambiar_frame(driver, nombre_frame, tiempo=10):
         print(f"Error: No se pudo cargar el <body> del'{nombre_frame}'. {e}")
 
 
-def navegar_a_pagina(driver, url):
+def navigate_to_url(driver, url):
     """
     Navega a la URL especificada utilizando el driver proporcionado.
-
-    Args:
-        driver (webdriver.Chrome): Instancia del navegador.
-        url (str): URL a la que se desea acceder.
     """
     try:
         driver.get(url)
-        print(f"Navegado a {url}")
+        print(f"Navegando a: {url}")
 
-        # Esperar a que el frame esté presente y cambiar a él
-        cambiar_frame(driver, "frame0")
-        print("Web cargada.")
+        # cambio de frame
+        switch_to_frame(driver, "frame0")
 
     except Exception as e:
         print(f"Error al navegar a {url}: {e}")
         raise
 
 
-def click_element(driver, element_id):
+def click_on_element(driver, element_id):
+    """
+    Hace clic en un elemento de la página utilizando su ID.
+    """
     try:
         element = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, element_id))
         )
         element.click()
     except StaleElementReferenceException:
-        click_element(driver, element_id)
+        click_on_element(driver, element_id)
 
 
-def select_option(driver, element_id, option_text):
+def select_dropdown_option(driver, element_id, option_text):
+    """
+    Selecciona una opción de un elemento <select> utilizando el texto de la opción
+    """
     try:
         # Esperar a que el elemento <select> sea clickeable
         select_element = WebDriverWait(driver, 10).until(
@@ -144,15 +145,16 @@ def select_option(driver, element_id, option_text):
 
         # Crear instancia de Select
         select = Select(select_element)
-        select.select_by_value(
-            str(option_text)
-        )  # Aquí corregimos option_value -> option_text
+        select.select_by_value(str(option_text))
 
     except StaleElementReferenceException:
-        select_option(driver, element_id, option_text)
+        select_dropdown_option(driver, element_id, option_text)
 
 
-def extraer_datos_tabla(driver):
+def extract_table_data(driver):
+    """
+    Extrae los datos de una tabla con clase 'Data' y retorna una lista de listas
+    """
     # Lista para almacenar los datos extraídos
     datos_tabla = []
 
@@ -174,7 +176,7 @@ def extraer_datos_tabla(driver):
     return datos_tabla
 
 
-def obtener_encabezados_finales(driver, tabla_id):
+def get_final_headers(driver, tabla_id):
     """
     Extrae encabezados manteniendo el orden de la tabla,
     omitiendo la primera columna vacía (botón) y obteniendo
@@ -210,29 +212,30 @@ def obtener_encabezados_finales(driver, tabla_id):
         return []
 
 
-def extraer_datos_por_anio(driver, year):
+def extract_data_by_year(driver, year):
     """
-    Extrae los datos para un año específico y obtiene los encabezados la primera vez.
+    Extrae los datos de la página para un año/s específicado/s.
+    Itera sobre departamentos, provincias y municipalidades.
     """
     datos_anio = []
     encabezados_extraidos = []  # Para almacenar los encabezados
 
-    select_option(driver, "ctl00_CPH1_DrpYear", year)
-    cambiar_frame(driver, "frame0")
-    click_element(driver, "ctl00_CPH1_BtnTipoGobierno")
-    cambiar_frame(driver, "frame0")
+    select_dropdown_option(driver, "ctl00_CPH1_DrpYear", year)
+    switch_to_frame(driver, "frame0")
+    click_on_element(driver, "ctl00_CPH1_BtnTipoGobierno")
+    switch_to_frame(driver, "frame0")
     print("Nivel de Gob detalle")
-    click_element(driver, "tr1")
-    cambiar_frame(driver, "frame0")
+    click_on_element(driver, "tr1")
+    switch_to_frame(driver, "frame0")
     print("Gob. locales")
-    click_element(driver, "ctl00_CPH1_BtnSubTipoGobierno")
-    cambiar_frame(driver, "frame0")
+    click_on_element(driver, "ctl00_CPH1_BtnSubTipoGobierno")
+    switch_to_frame(driver, "frame0")
     print("Gob. locales detalle")
-    click_element(driver, "ctl00_CPH1_RptData_ctl01_TD0")
-    cambiar_frame(driver, "frame0")
+    click_on_element(driver, "ctl00_CPH1_RptData_ctl01_TD0")
+    switch_to_frame(driver, "frame0")
     print("Municipalidades.")
-    click_element(driver, "ctl00_CPH1_BtnDepartamento")
-    cambiar_frame(driver, "frame0")
+    click_on_element(driver, "ctl00_CPH1_BtnDepartamento")
+    switch_to_frame(driver, "frame0")
     print("Dept. detalle")
 
     departamentos = driver.find_elements(By.XPATH, "//tr[starts-with(@id, 'tr')]")
@@ -244,10 +247,10 @@ def extraer_datos_por_anio(driver, year):
         depto = departamentos[i]  # Usar el elemento actualizado
         depto_nombre = depto.find_element(By.XPATH, "./td[2]").text.strip()
 
-        click_element(driver, f"tr{i}")
-        cambiar_frame(driver, "frame0")
-        click_element(driver, "ctl00_CPH1_BtnProvincia")
-        cambiar_frame(driver, "frame0")
+        click_on_element(driver, f"tr{i}")
+        switch_to_frame(driver, "frame0")
+        click_on_element(driver, "ctl00_CPH1_BtnProvincia")
+        switch_to_frame(driver, "frame0")
         print(f"{depto_nombre} seleccionado")
 
         provincias = driver.find_elements(By.XPATH, "//tr[starts-with(@id, 'tr')]")
@@ -259,20 +262,18 @@ def extraer_datos_por_anio(driver, year):
             prov = provincias[j]  # Usar el elemento actualizado
             prov_nombre = prov.find_element(By.XPATH, "./td[2]").text.strip()
 
-            click_element(driver, f"tr{j}")
-            cambiar_frame(driver, "frame0")
-            click_element(driver, "ctl00_CPH1_BtnMunicipalidad")
-            cambiar_frame(driver, "frame0")
+            click_on_element(driver, f"tr{j}")
+            switch_to_frame(driver, "frame0")
+            click_on_element(driver, "ctl00_CPH1_BtnMunicipalidad")
+            switch_to_frame(driver, "frame0")
             print(f"{prov_nombre} seleccionado")
 
             # Obtener los encabezados solo la primera vez
             if not encabezados_extraidos:
-                encabezados_extraidos = obtener_encabezados_finales(
-                    driver, "ctl00_CPH1_Mt0"
-                )
+                encabezados_extraidos = get_final_headers(driver, "ctl00_CPH1_Mt0")
 
             # Extraer los datos de la tabla de municipalidades
-            datos_municipalidad = extraer_datos_tabla(driver)
+            datos_municipalidad = extract_table_data(driver)
 
             # Agregar metadatos: Año, Departamento, Provincia
             for fila in datos_municipalidad:
@@ -281,17 +282,17 @@ def extraer_datos_por_anio(driver, year):
 
             # Volver a la lista de provincias
             driver.back()
-            cambiar_frame(driver, "frame0")
+            switch_to_frame(driver, "frame0")
 
         # Volver a la lista de departamentos
         driver.back()
-        cambiar_frame(driver, "frame0")
+        switch_to_frame(driver, "frame0")
 
     # Retornar los datos y los encabezados extraídos
     return datos_anio, encabezados_extraidos
 
 
-def guardar_en_excel(nombre_archivo, datos, encabezados):
+def save_data(nombre_archivo, datos, encabezados):
     """
     Guarda los datos extraídos en un archivo Excel.
     """
@@ -307,16 +308,16 @@ def main():
     """
     Función principal para iniciar el proceso de scraping.
     """
-    driver = iniciar_driver()
+    driver = initialize_driver()
     todos_los_datos = []
     encabezados_municipalidad = []
 
     try:
-        navegar_a_pagina(driver, a_config.URL)
+        navigate_to_url(driver, a_config.URL)
 
         for year in a_config.YEARS:
             print(f"Extrayendo datos para el año {year}...")
-            datos_anio, encabezados_tabla = extraer_datos_por_anio(driver, year)
+            datos_anio, encabezados_tabla = extract_data_by_year(driver, year)
 
             # Guardar los encabezados solo si aún no se han extraído
             if not encabezados_municipalidad and encabezados_tabla:
@@ -326,14 +327,14 @@ def main():
 
     except Exception as e:
         print(f"Se produjo un error en el proceso: {e}")
-        # Guardar los datos recolectados hasta el momento
+        # Guardar los datos recolectados hasta el momento del error
         if todos_los_datos:
             print("Guardando los datos recolectados hasta el momento...")
             encabezados_completos = (
                 a_config.ENCABEZADOS_BASE + encabezados_municipalidad
             )
-            guardar_en_excel(
-                os.path.join(a_config.PATH_DATA_RAW, "datos_parciales.xlsx"),
+            save_data(
+                os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA_PARCIAL),
                 todos_los_datos,
                 encabezados_completos,
             )
@@ -341,12 +342,12 @@ def main():
             print("No hay datos para guardar.")
 
     finally:
-        # Guardar los datos nuevamente al finalizar si no se guardaron en el except
+        # Guardar los datos recolectados en un archivo Excel
         if todos_los_datos:
             encabezados_completos = (
                 a_config.ENCABEZADOS_BASE + encabezados_municipalidad
             )
-            guardar_en_excel(
+            save_data(
                 os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA),
                 todos_los_datos,
                 encabezados_completos,
