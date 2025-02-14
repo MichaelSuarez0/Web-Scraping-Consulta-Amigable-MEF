@@ -22,16 +22,24 @@ requests==2.32.3
 ### 2.1. Clonar el repositorio
 Clona este repositorio en tu máquina local utilizando el siguiente comando:
 ```bash
-git clone https://github.com/
-cd --
+git clone https://github.com/AlexEvanan/Web-Scraping-Consulta-Amigable-MEF.git
+```
+
+Se establece como directorio de trabajo la carpeta clonada.
+```bash
+cd "nombre de la carpeta"
 ```
 
 ### 2.2. Crear y activar el entorno virtual
-Instala las dependencias .
+
 ```bash
 python -m venv .venvWS
+```
+
+```bash
 .venvWS\Scripts\activate
 ```
+
 > [!NOTE]
 > Verificar que el terminal muestre el entorno virtual activo.
 
@@ -43,6 +51,10 @@ pip install -r requirements.txt
 ### 2.4 Descargar ChromeDriver
 Desde la web oficial  [ChromeDriver](https://googlechromelabs.github.io/chrome-for-testing/#stable) descargar la version estable del binario en formato ```.zip```.
 
+Los archivos extraidos del  ```.zip``` guardar y/o reemplazar en la carpeta ```03_config\chromedriver```
+
+> [!IMPORTANT] 
+> La versión del Chrome (el navegador regular) debe estar actualizado. 
 
 ## 3. Estructura del Proyecto
 
@@ -83,7 +95,13 @@ Desde la web oficial  [ChromeDriver](https://googlechromelabs.github.io/chrome-f
 Para ejecutar el scraper y extraer los datos, simplemente corre el siguiente comando:
 
 ```cmd
-python src/scraping/scraper.py
+python 02_src\b_scraper.py
+```
+
+### 4.3. Ejecutar el Script de Limpieza y Procesamiento
+
+```cmd
+python 02_src\c_cleaner.py
 ```
 
 ## 5. Licencia
