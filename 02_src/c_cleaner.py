@@ -35,7 +35,7 @@ sys.path.append(os.path.join(os.getcwd(), "02_src"))
 import a_config
 
 # =====================
-# Importacion de data
+# Importación de data
 # =====================
 
 
