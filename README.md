@@ -1,4 +1,4 @@
-[![DOI](https://zenodo.org/badge/408010655.svg)]( )
+[![DOI](https://zenodo.org/badge/930675080.svg)](https://doi.org/10.5281/zenodo.14876919)
 
 # Web Scraping: Consulta Amigable MEF <a id='a'></a>
 Este proyecto utiliza Selenium para automatizar la navegación web y extraer datos del portal [Consulta Amigable](https://apps5.mineco.gob.pe/transparencia/Mensual/default.aspx) del MEF. Los datos extraídos se guardan en un archivo XLSX/CSV para su posterior análisis y procesamiento.
@@ -234,10 +234,10 @@ python 02_src\c_cleaner.py
 Este proyecto está licenciado bajo la Licencia MIT. Consulta el archivo LICENSE para más detalles.
 
 ## Citación
-
+Evanan, M. A. (2025). Web Scraping: Consulta Amigable MEF (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.14876920
 
 ## Contactos
-Correo:
-LinkedIn: 
+[![Linkedin](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/mayovaralexevanan/)
+[![Linkedin](https://img.shields.io/badge/Gmail-EA4335?style=flat&logo=gmail&logoColor=white)](evananalex@gmail.com)
 
 [**Subir ↑**](#a)
