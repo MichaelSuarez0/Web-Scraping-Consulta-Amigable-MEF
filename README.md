@@ -239,7 +239,7 @@ Evanan, M. A. (2025). Web Scraping: Consulta Amigable MEF (v1.1.0). Zenodo. http
 ## Contactos
 evananalex@gmail.com
 
-[![Linkedin](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/mayovaralexevanan/)
-[![Gmail](https://img.shields.io/badge/Twitter-000000?style=flat&logo=x&logoColor=white)](evananalex@gmail.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/mayovaralexevanan/)
+[![X Twitter](https://img.shields.io/badge/Twitter-000000?style=flat&logo=x&logoColor=white)](https://x.com/alex_evanan)
 
 [**Subir ↑**](#a)
