@@ -237,7 +237,9 @@ Este proyecto está licenciado bajo la Licencia MIT. Consulta el archivo LICENSE
 Evanan, M. A. (2025). Web Scraping: Consulta Amigable MEF (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.14876920
 
 ## Contactos
+evananalex@gmail.com
+
 [![Linkedin](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/mayovaralexevanan/)
-[![Linkedin](https://img.shields.io/badge/Gmail-EA4335?style=flat&logo=gmail&logoColor=white)](evananalex@gmail.com)
+[![Gmail](https://img.shields.io/badge/Twitter-000000?style=flat&logo=x&logoColor=white)](evananalex@gmail.com)
 
 [**Subir ↑**](#a)
