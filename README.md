@@ -1,9 +1,11 @@
 [![DOI](https://zenodo.org/badge/930675080.svg)](https://doi.org/10.5281/zenodo.14876919)
 
 # Web Scraping: Consulta Amigable MEF <a id='a'></a>
-Este proyecto utiliza Selenium para automatizar la navegación web y extraer datos del portal [Consulta Amigable](https://apps5.mineco.gob.pe/transparencia/Mensual/default.aspx) del MEF. Los datos extraídos se guardan en un archivo XLSX/CSV para su posterior análisis y procesamiento.
+Este proyecto, desarrollado en **Python**, emplea **Selenium** para automatizar la navegación y extracción de datos del portal [Consulta Amigable](https://apps5.mineco.gob.pe/transparencia/Mensual/default.aspx) del **Ministerio de Economía y Finanzas (MEF) de Perú**.  
 
-El scraper está optimizado para extraer la ejecución del gasto con frecuencia mensual según la desagregación "¿Quién gasta?", iterando por año, departamento, provincia y municipalidad, siendo este último el nivel donde se obtienen los datos.
+Los datos extraídos corresponden a la **ejecución del gasto público a nivel municipal** según la desagregación **"¿Quién gasta?"**, con una frecuencia **mensual**. El proceso sigue una estructura jerárquica, iterando por **año, departamento, provincia y municipalidad**, siendo este último el nivel donde se obtienen los datos.
+
+Los datos obtenidos son preprocesados y almacenados en formato **XLSX/CSV**. Además, para la gestión del código y control de versiones, se emplearon **Git** y **GitHub**.
 
 
 ## Contenido
@@ -15,9 +17,10 @@ El scraper está optimizado para extraer la ejecución del gasto con frecuencia 
 
 ## 1. Requisitos <a id='1'></a>
 
-Este proyecto se desarrolló en:
-* Python 3.11
-* ChromeDriver
+Este proyecto fue desarrollado con:
+* **Python** 3.11
+* **ChromeDriver**
+* **Git** (opcional, pero recomendado para clonar el repositorio)
 
 Para ejecutar se necesitas tener instaladas las siguientes dependencias con `pip`:
 
@@ -32,36 +35,50 @@ requests==2.32.3
 ## 2. Instalación <a id='2'></a>
 
 ### 2.1. Clonar el repositorio
-Clona este repositorio en tu máquina local utilizando el siguiente comando:
+
+> [!IMPORTANT]
+> Para clonar el repositorio, es necesario tener [Git](https://git-scm.com/downloads/win) instalado en tu sistema.
+Si es la primera vez que lo usas, sigue esta [guía](https://github.com/AlexEvanan/Version-control-guide-Git-GitHub) para la configuración inicial.
+
+1. Abre una terminal o línea de comandos Git Bash.
+2. Ejecuta el siguiente comando para clonar el repositorio en tu máquina local:
 ```bash
 git clone https://github.com/AlexEvanan/Web-Scraping-Consulta-Amigable-MEF.git
 ```
 
-Se establece como directorio de trabajo la carpeta clonada.
+3. Se establece como directorio de trabajo la carpeta clonada.
 ```bash
-cd "nombre de la carpeta"
+cd Web-Scraping-Consulta-Amigable-MEF
 ```
 
 ### 2.2. Crear y activar el entorno virtual
+Se recomienda utilizar un entorno virtual para gestionar las dependencias del proyecto de forma aislada.  
+
+1. Abre una terminal CMD dentro del directorio del proyecto.
+
+2. Ejecuta el siguiente comando para crear el entorno virtual.
 
 ```bash
 python -m venv .venvWS
 ```
+3. Activar el entorno virtual.
 
 ```bash
 .venvWS\Scripts\activate
 ```
 
 > [!NOTE]
-> Verificar que el terminal muestre el entorno virtual activo.
+> Verificar que el terminal muestre el entorno virtual activo. Ejemplo: `(.venvWS) D:\...`
 
 ### 2.3. Instalar las dependencias
+En la terminal CMD ejecutar:
+
 ```cmd
 pip install -r requirements.txt
 ```
 
-### 2.4 Descargar ChromeDriver
-Desde la web oficial  [ChromeDriver](https://googlechromelabs.github.io/chrome-for-testing/#stable) descargar la version estable del binario en formato `.zip`.
+### 2.4. Descargar ChromeDriver
+Desde la web oficial  [ChromeDriver](https://googlechromelabs.github.io/chrome-for-testing/#stable) descargar la version estable del `.exe` en formato `.zip`.
 
 Los archivos extraídos del  `.zip` guardar y/o reemplazar en la carpeta `03_config\chromedriver`
 
@@ -97,7 +114,7 @@ Los archivos extraídos del  `.zip` guardar y/o reemplazar en la carpeta `03_con
 
 A continuación se describe los códigos fuente ("source") que se encuentran en la carpeta `02_src/`
 
-### 3.1 `a_config.py`
+### 3.1. `a_config.py`
 Define rutas, parámetros de ejecución y detalles clave para la navegación en la web y procesamiento de datos. 
 
 * Configuración del WebDriver y Navegación.
@@ -111,17 +128,17 @@ Define rutas, parámetros de ejecución y detalles clave para la navegación en 
     * Nombre del archivo final procesado, que almacenará los datos estructurados.
 
 > [!NOTE]
-> Este script define los parámetros de configuración recurrentes para garantizar coherencia, facilidad de mantenimiento y flexibilidad. Además, separa la configuración de la lógica del código principal.
+> Este script define los parámetros de configuración que pueden ser modificados de acuerdo a las necesidades. El objetivo es separa la configuración de la lógica del código principal.
 
-### 3.2 `b_scraper.py`
-Este script es el núcleo del proceso de scraping. Su función principal es automatizar la navegación en el portal de definido, extraer la información relevante y almacenarla en un archivo de salida.
+### 3.2. `b_scraper.py`
+Este script es el núcleo del proceso de scraping. Su función principal es automatizar la navegación en el portal de definido, extraer los datos y almacenarla en un archivo de salida.
 
 * Carga la configuración desde `a_config.py`.
 * Define funciones especializadas.
 * Automatiza la navegación.
 * Extrae y guarda la información.
 
-El script se compone de las siguientes funciones:
+El script se compone de las siguientes funciones creadas:
 
 * `initialize_driver()` → Configura y lanza el WebDriver.
 * `switch_to_frame()` → Reinicia/cambia el contexto al frame especificado.
@@ -134,7 +151,7 @@ El script se compone de las siguientes funciones:
 * `save_data()` → Guarda los datos extraídos.
 * `main()` → Función principal que llama a las funciones en el orden correcto para la ejecución del scraper.
 
-En el siguiente diagrama se muestra la lógica desarrollada.
+El siguiente diagrama muestra la lógica de todo el proceso.
 
 ```mermaid
 ---
@@ -192,7 +209,7 @@ stateDiagram
 ***Nota:** Este diagrama muestra el flujo de navegación y extracción de datos, detallando las iteraciones en la automatización. Implícitamente, después de cada `click_on_element()`, se ejecuta `switch_to_frame()`.*  
 
 
-### 3.3 `c_cleaner.py`
+### 3.3. `c_cleaner.py`
 Este script se encarga de la limpieza y preprocesamiento de los datos extraídos.  
 
 - Carga los datos desde el archivo generado por `b_scraper.py`.  
