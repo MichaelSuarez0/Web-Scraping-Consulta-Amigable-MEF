@@ -1,10 +1,19 @@
-# Web Scraping: Consulta Amigable MEF
+[![DOI](https://zenodo.org/badge/408010655.svg)]( )
+
+# Web Scraping: Consulta Amigable MEF <a id='a'></a>
 Este proyecto utiliza Selenium para automatizar la navegación web y extraer datos del portal [Consulta Amigable](https://apps5.mineco.gob.pe/transparencia/Mensual/default.aspx) del MEF. Los datos extraídos se guardan en un archivo XLSX/CSV para su posterior análisis y procesamiento.
 
 El scraper está optimizado para extraer la ejecución del gasto con frecuencia mensual según la desagregación "¿Quién gasta?", iterando por año, departamento, provincia y municipalidad, siendo este último el nivel donde se obtienen los datos.
 
 
-## 1. Requisitos
+## Contenido
+1. [**Requisitos**](#1)
+2. [**Instalación**](#2)
+3. [**Estructura del Proyecto**](#3)
+4. [**Uso**](#4)
+
+
+## 1. Requisitos <a id='1'></a>
 
 Este proyecto se desarrolló en:
 * Python 3.11
@@ -20,7 +29,7 @@ selenium==4.28.1
 requests==2.32.3
 ```
 
-## 2. Instalación
+## 2. Instalación <a id='2'></a>
 
 ### 2.1. Clonar el repositorio
 Clona este repositorio en tu máquina local utilizando el siguiente comando:
@@ -59,7 +68,7 @@ Los archivos extraídos del  `.zip` guardar y/o reemplazar en la carpeta `03_con
 > [!IMPORTANT] 
 > La versión del Chrome (el navegador regular) debe estar actualizado. 
 
-## 3. Estructura del Proyecto
+## 3. Estructura del Proyecto <a id='3'></a>
 
 ```
 /WS CAMEF/
@@ -183,7 +192,7 @@ stateDiagram
 ***Nota:** Este diagrama muestra el flujo de navegación y extracción de datos, detallando las iteraciones en la automatización. Implícitamente, después de cada `click_on_element()`, se ejecuta `switch_to_frame()`.*  
 
 
-### 3.2 `c_cleaner.py`
+### 3.3 `c_cleaner.py`
 Este script se encarga de la limpieza y preprocesamiento de los datos extraídos.  
 
 - Carga los datos desde el archivo generado por `b_scraper.py`.  
@@ -200,7 +209,7 @@ El script se compone de las siguientes funciones:
 - **`main()`** → Función principal que ejecuta la secuencia de limpieza y almacenamiento de datos.  
 
 
-## 4. Uso
+## 4. Uso <a id='4'></a>
 
 ### 4.1. Activar el entorno virtual
 
@@ -221,9 +230,14 @@ python 02_src\b_scraper.py
 python 02_src\c_cleaner.py
 ```
 
-## 5. Licencia
+## Licencia
 Este proyecto está licenciado bajo la Licencia MIT. Consulta el archivo LICENSE para más detalles.
 
-## 6. Contactos
+## Citación
+
+
+## Contactos
 Correo:
 LinkedIn: 
+
+[**Subir ↑**](#a)
