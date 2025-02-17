@@ -13,6 +13,7 @@ Los datos obtenidos son preprocesados y almacenados en formato **XLSX/CSV**. Ade
 2. [**Instalación**](#2)
 3. [**Estructura del Proyecto**](#3)
 4. [**Uso**](#4)
+___
 
 
 ## 1. Requisitos <a id='1'></a>
@@ -20,9 +21,9 @@ Los datos obtenidos son preprocesados y almacenados en formato **XLSX/CSV**. Ade
 Este proyecto fue desarrollado con:
 * **Python** 3.11
 * **ChromeDriver**
-* **Git** (opcional, pero recomendado para clonar el repositorio)
+* **Git** (recomendado para clonar el repositorio)
 
-Para ejecutar se necesitas tener instaladas las siguientes dependencias con `pip`:
+Para ejecutar se necesita tener instaladas las siguientes dependencias:
 
 ```cmd
 pandas==2.2.3
@@ -37,10 +38,12 @@ requests==2.32.3
 ### 2.1. Clonar el repositorio
 
 > [!IMPORTANT]
-> Para clonar el repositorio, es necesario tener [Git](https://git-scm.com/downloads/win) instalado en tu sistema.
-Si es la primera vez que lo usas, sigue esta [guía](https://github.com/AlexEvanan/Version-control-guide-Git-GitHub) para la configuración inicial.
+> Para clonar el repositorio instalar [Git](https://git-scm.com/downloads/win).
+> * [Guía](https://github.com/AlexEvanan/Version-control-guide-Git-GitHub) para la configuración inicial de GIT.
+> * [Guía](https://github.com/AlexEvanan/Guide-Install-Python) para instalar Python.
 
 1. Abre una terminal o línea de comandos Git Bash.
+
 2. Ejecuta el siguiente comando para clonar el repositorio en tu máquina local:
 ```bash
 git clone https://github.com/AlexEvanan/Web-Scraping-Consulta-Amigable-MEF.git
@@ -51,18 +54,19 @@ git clone https://github.com/AlexEvanan/Web-Scraping-Consulta-Amigable-MEF.git
 cd Web-Scraping-Consulta-Amigable-MEF
 ```
 
+
 ### 2.2. Crear y activar el entorno virtual
+
 Se recomienda utilizar un entorno virtual para gestionar las dependencias del proyecto de forma aislada.  
 
 1. Abre una terminal CMD dentro del directorio del proyecto.
 
 2. Ejecuta el siguiente comando para crear el entorno virtual.
-
 ```bash
 python -m venv .venvWS
 ```
-3. Activar el entorno virtual.
 
+3. Activar el entorno virtual.
 ```bash
 .venvWS\Scripts\activate
 ```
@@ -70,20 +74,25 @@ python -m venv .venvWS
 > [!NOTE]
 > Verificar que el terminal muestre el entorno virtual activo. Ejemplo: `(.venvWS) D:\...`
 
+
 ### 2.3. Instalar las dependencias
+
 En la terminal CMD ejecutar:
 
 ```cmd
 pip install -r requirements.txt
 ```
 
+
 ### 2.4. Descargar ChromeDriver
+
 Desde la web oficial  [ChromeDriver](https://googlechromelabs.github.io/chrome-for-testing/#stable) descargar la version estable del `.exe` en formato `.zip`.
 
-Los archivos extraídos del  `.zip` guardar y/o reemplazar en la carpeta `03_config\chromedriver`
+Los archivos extraídos del  `.zip` guardar y/o reemplazar en la carpeta `03_config\chromedriver\`
 
 > [!IMPORTANT] 
 > La versión del Chrome (el navegador regular) debe estar actualizado. 
+
 
 ## 3. Estructura del Proyecto <a id='3'></a>
 
@@ -112,37 +121,48 @@ Los archivos extraídos del  `.zip` guardar y/o reemplazar en la carpeta `03_con
 └── .venvWS/                # Entorno virtual
 ```
 
-A continuación se describe los códigos fuente ("source") que se encuentran en la carpeta `02_src/`
+A continuación se describe los códigos fuente (*source*) que se encuentran en la carpeta `02_src/`
+
 
 ### 3.1. `a_config.py`
-Define rutas, parámetros de ejecución y detalles clave para la navegación en la web y procesamiento de datos. 
 
-* Configuración del WebDriver y Navegación.
-    * Define las rutas del proyecto (datos crudos, procesados y WebDriver).
-    * Especifica la URL de la plataforma a extraer datos.
-* Parámetros de Scraping
-    * Lista de años a consultar en la web.
-    * Definición de archivos de salida, tanto finales como parciales (para manejar errores).
-    * Especificación de los encabezados base que tendrá el dataset extraído.
-* Parámetros de Procesamiento
-    * Nombre del archivo final procesado, que almacenará los datos estructurados.
+Define rutas, parámetros de ejecución, navegación en la web y procesamiento de datos. 
+
+* Configuración del directorio y URL.
+
+| **Variable**        | **Descripción**                           |
+|---------------------|-------------------------------------------|
+| `PATH_BASE`        | Directorio principal ()                      |
+| `PATH_DATA_RAW`    | Ruta donde se almacenan los datos crudos  |
+| `PATH_DATA_PRO`    | Ruta donde se guardan los datos preprocesados |
+| `PATH_DRIVER`      | Ubicación del WebDriver                   |
+| `URL`              | Plataforma de la cual se extraen los datos |
+
+* Parámetros de Scraping y preprocesamiento
+
+| **Variable**             | **Descripción**                                     |
+|--------------------------|-----------------------------------------------------|
+| `YEARS`                  | Rango de años `list(range(2015, 2026))` (no incluye el limite superior) |
+| `ARCHIVO_SALIDA`         | Nombre del archivo generado por el scraping        |
+| `ARCHIVO_SALIDA_PARCIAL` | Archivo temporal en caso de error durante scraping |
+| `ENCABEZADOS_BASE`       | Nombre de las primeras columnas del dataset        |
+| `ARCHIVO_PROCESADO`      | Nombre del archivo después del preprocesamiento    |
 
 > [!NOTE]
-> Este script define los parámetros de configuración que pueden ser modificados de acuerdo a las necesidades. El objetivo es separa la configuración de la lógica del código principal.
+> Este script define los parámetros de configuración que pueden ser modificados de acuerdo a las necesidades. El objetivo es separar la configuración de la lógica del código principal.
+
 
 ### 3.2. `b_scraper.py`
-Este script es el núcleo del proceso de scraping. Su función principal es automatizar la navegación en el portal de definido, extraer los datos y almacenarla en un archivo de salida.
+Este script es el núcleo del proceso de scraping. Su función principal es automatizar la navegación en el portal definido, extraer los datos y almacenarla en un archivo de salida.
 
 * Carga la configuración desde `a_config.py`.
 * Define funciones especializadas.
-* Automatiza la navegación.
-* Extrae y guarda la información.
 
 El script se compone de las siguientes funciones creadas:
 
 * `initialize_driver()` → Configura y lanza el WebDriver.
-* `switch_to_frame()` → Reinicia/cambia el contexto al frame especificado.
 * `navigate_to_url()` → Accede a la URL objetivo.
+* `switch_to_frame()` → Reinicia/cambia el contexto al frame especificado.
 * `click_on_element()` → Hace clic en un elemento de la página.
 * `select_dropdown_option()` → Selecciona una opción en un desplegable.
 * `extract_table_data()` → Extrae datos de una tabla en la web.
@@ -230,22 +250,49 @@ El script se compone de las siguientes funciones:
 
 ### 4.1. Activar el entorno virtual
 
+En la terminal CMD dentro del directorio del proyecto, ejecutar: 
 ```cmd
 .venvWS\Scripts\activate
 ```
 
-### 4.2. Ejecutar el Script de Scraping
-Para ejecutar el scraper y extraer los datos, simplemente corre el siguiente comando:
+
+### 4.2. Ajustar parámetros en `a_config.py`
+ 
+Los valores predeterminados no requieren modificaciones, excepto `YEARS`, que debe ajustarse según los años de interés para la extracción de datos.
+
+1. Abrir el `a_config.py`.
+
+2. Definir el rango de años.
+```python
+YEARS = list(range(2024, 2026))
+```
+Como resultado definirá los año 2024-2025 para el scraping (al definir un rango Python no incluye el rango superior).
+
+3. Guardar los cambios y cerrar `a_config.py` .
+
+
+### 4.3. Ejecutar el `b_scraper.py`
+
+Para ejecutar el **scraper** simplemente se ejecuta el siguiente comando en la terminal CMD dentro del directorio del proyecto:
 
 ```cmd
 python 02_src\b_scraper.py
 ```
 
-### 4.3. Ejecutar el Script de Limpieza y Procesamiento
+Mientras dure el proceso en la terminal se visualizará el log del proceso.
+Una vez finalice correctamente saldrá el siguiente mensaje.
+
+
+### 4.4. Ejecutar el `c_cleaner.py`
+
+Ejecuta la secuencia de limpieza y preprocesamiento de la data obtenida por `b_scraper.py`. 
+
+En la misma terminar de CMD ejecutar:
 
 ```cmd
 python 02_src\c_cleaner.py
 ```
+
 
 ## Licencia
 Este proyecto está licenciado bajo la Licencia MIT. Consulta el archivo LICENSE para más detalles.
