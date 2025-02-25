@@ -9,7 +9,9 @@ Author      : Alex Evanan
 
 Revision History:
     - [2025-02-07]  v1.0: Initial version.
-    - [2025-02-010] v1.1: function implementation.
+    - [2025-02-10]  v1.1: function implementation.
+    - [2025-02-24]  v1.2: Added generalized functions for navigation and data extraction.
+    - [2025-02-25]  v1.3: Tested escalability new ROUTES and FILE_CONFIGS.
 
 Notes:
     - Developed with Python 3.11.9.
@@ -390,6 +392,11 @@ def main():
         ruta_seleccionada = select_route()
         print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
 
+        # Obtener configuración de la ruta seleccionada
+        file_conf = a_config.FILE_CONFIGS.get(ruta_seleccionada, {})
+        encabezados_base = file_conf.get("ENCABEZADOS_BASE", [])
+        archivo_scraping = file_conf.get("ARCHIVO_SCRAPING", [])
+
         # Iterar sobre los años y extraer datos
         for year in a_config.YEARS:
             datos_anio = extract_data_by_year(
@@ -404,9 +411,9 @@ def main():
         # Guardar datos parciales si hubo un error
         if todos_los_datos:
             print("💾 Guardando datos parciales antes de cerrar...")
-            encabezados_completos = a_config.ENCABEZADOS_BASE + table_headers
+            encabezados_completos = encabezados_base + table_headers
             save_data(
-                os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA_PARCIAL),
+                os.path.join(a_config.PATH_DATA_RAW, "parcial_" + archivo_scraping),
                 todos_los_datos,
                 encabezados_completos,
             )
@@ -415,9 +422,9 @@ def main():
         # Guardar los datos finales si se obtuvieron datos completos
         if todos_los_datos:
             print("💾 Guardando datos finales...")
-            encabezados_completos = a_config.ENCABEZADOS_BASE + table_headers
+            encabezados_completos = encabezados_base + table_headers
             save_data(
-                os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA),
+                os.path.join(a_config.PATH_DATA_RAW, archivo_scraping),
                 todos_los_datos,
                 encabezados_completos,
             )

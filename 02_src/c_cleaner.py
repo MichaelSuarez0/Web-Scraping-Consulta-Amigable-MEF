@@ -9,6 +9,7 @@ Author      : Alex Evanan
 
 Revision History:
     - [2025-02-07]  v1.0: Initial version.
+    - [2025-02-25]  v1.1: Add support for multiple files.
 
 Notes:
     - Developed with Python 3.11.9.
@@ -109,63 +110,57 @@ def save_data(nombre_archivo, datos):
 
 
 def main():
-    # Leer el archivo de salida
-    df = read_files(os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA))
+    """
+    Función principal para procesar los archivos extraídos.
+    - Lee los archivos extraídos.
+    - Divide columnas según la configuración.
+    - Convierte las últimas 8 columnas a numéricas.
+    - Guarda los datos procesados en un nuevo archivo.
+    """
+    for file_key, config_file in a_config.FILE_CONFIGS.items():
+        print(f"🔹 Procesando data: {file_key}")
 
-    # Limpiar y procesar los datos
-    df = split_column(
-        df,
-        source_col="Departamento",
-        new_cols=["UBI_DPTO", "Departamento"],
-        delimiter=":",
-    )
+        archivo_entrada = os.path.join(
+            a_config.PATH_DATA_RAW, config_file.get("ARCHIVO_SCRAPING", "")
+        )
+        if not os.path.exists(archivo_entrada):
+            print(f"Archivo no encontrado: {archivo_entrada}. Se omite.")
+            continue
 
-    df = split_column(
-        df, source_col="Provincia", new_cols=["UBI_PROV", "Provincia"], delimiter=":"
-    )
+        # Leer archivo
+        df = read_files(archivo_entrada)
 
-    df = split_column(
-        df,
-        source_col="Municipalidad",
-        new_cols=["UBI_DIST", "COD_SIAF", "Municipalidad"],
-        delimiter="-|:",
-    )
+        # Obtener configuración de limpieza
+        config_clean = a_config.CLEANING_CONFIGS.get(file_key, {})
+        encabezados = config_clean.get("ENCABEZADOS_PROCESADOS", [])
 
-    # Convertir columnas numéricas
-    cols = [
-        "PIA",
-        "PIM",
-        "Certificación",
-        "Compromiso Anual",
-        "Atención de Compromiso Mensual",
-        "Devengado",
-        "Girado",
-    ]
-    df = numeric_columns(df, cols)
+        # Identificar la primera columna original
+        primera_columna = [df.columns[0]] if not df.empty else []
 
-    # Ordenar y exportar los datos
-    cols_orden = [
-        "Año",
-        "UBI_DPTO",
-        "Departamento",
-        "UBI_PROV",
-        "Provincia",
-        "UBI_DIST",
-        "COD_SIAF",
-        "Municipalidad",
-        "PIA",
-        "PIM",
-        "Certificación",
-        "Compromiso Anual",
-        "Atención de Compromiso Mensual",
-        "Devengado",
-        "Girado",
-        "Avance %",
-    ]
+        # Aplicar split de columnas y mantener el orden
+        columnas_nuevas = []
+        for source_col, new_cols, delimiter in encabezados:
+            if source_col in df.columns:
+                df = split_column(df, source_col, new_cols, delimiter)
+                columnas_nuevas.extend(new_cols)
 
-    df = df[cols_orden]
+        # Obtener columnas restantes (las que no fueron afectadas por el split)
+        columnas_restantes = [
+            col for col in df.columns if col not in primera_columna + columnas_nuevas
+        ]
 
-    save_data(os.path.join(a_config.PATH_DATA_PRO, a_config.ARCHIVO_PROCESADO), df)
+        # Reordenar: Primera columna original → columnas del split → otras columnas
+        df = df[primera_columna + columnas_nuevas + columnas_restantes]
+
+        # Convertir las últimas 8 columnas a numéricas (si existen)
+        df = numeric_columns(df, df.columns[-8:])
+
+        # Guardar archivo procesado
+        archivo_salida = os.path.join(
+            a_config.PATH_DATA_PRO,
+            f"PROCESADO_{config_file.get('ARCHIVO_SCRAPING', '')}",
+        )
+        save_data(archivo_salida, df)
 
 
 if __name__ == "__main__":
