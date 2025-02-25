@@ -80,6 +80,22 @@ def initialize_driver():
         raise
 
 
+def navigate_to_url(driver, url):
+    """
+    Navega a la URL especificada utilizando el driver proporcionado.
+    """
+    try:
+        driver.get(url)
+        print(f"Navegando a: {url}")
+
+        # cambio de frame
+        switch_to_frame(driver, "frame0")
+
+    except Exception as e:
+        print(f"Error al navegar a {url}: {e}")
+        raise
+
+
 def switch_to_frame(driver, nombre_frame, tiempo=10):
     """
     Cambia al frame especificado y verifica que el <body> esté presente
@@ -102,22 +118,6 @@ def switch_to_frame(driver, nombre_frame, tiempo=10):
 
     except Exception as e:
         print(f"Error: No se pudo cargar el <body> del'{nombre_frame}'. {e}")
-
-
-def navigate_to_url(driver, url):
-    """
-    Navega a la URL especificada utilizando el driver proporcionado.
-    """
-    try:
-        driver.get(url)
-        print(f"Navegando a: {url}")
-
-        # cambio de frame
-        switch_to_frame(driver, "frame0")
-
-    except Exception as e:
-        print(f"Error al navegar a {url}: {e}")
-        raise
 
 
 def click_on_element(driver, element_id):
@@ -212,84 +212,134 @@ def get_final_headers(driver, tabla_id):
         return []
 
 
-def extract_data_by_year(driver, year):
+def navigate_levels(driver, route_config, current_level, table_headers, context=None):
     """
-    Extrae los datos de la página para un año/s específicado/s.
-    Itera sobre departamentos, provincias y municipalidades.
+    Navega a través de los niveles definidos en la configuración.
+
+    :param driver: Instancia de Selenium WebDriver.
+    :param route_config: Configuración de la ruta (ROUTES en a_config.py).
+    :param current_level: Nivel actual en la navegación.
+    :param table_headers: Lista donde se almacenarán los encabezados solo una vez.
+    :param context: Diccionario para almacenar la jerarquía para iterar.
+    :return: Lista con los datos extraídos.
     """
-    datos_anio = []
-    encabezados_extraidos = []  # Para almacenar los encabezados
 
-    select_dropdown_option(driver, "ctl00_CPH1_DrpYear", year)
-    switch_to_frame(driver, "frame0")
-    click_on_element(driver, "ctl00_CPH1_BtnTipoGobierno")
-    switch_to_frame(driver, "frame0")
-    print("Nivel de Gob detalle")
-    click_on_element(driver, "tr1")
-    switch_to_frame(driver, "frame0")
-    print("Gob. locales")
-    click_on_element(driver, "ctl00_CPH1_BtnSubTipoGobierno")
-    switch_to_frame(driver, "frame0")
-    print("Gob. locales detalle")
-    click_on_element(driver, "ctl00_CPH1_RptData_ctl01_TD0")
-    switch_to_frame(driver, "frame0")
-    print("Municipalidades.")
-    click_on_element(driver, "ctl00_CPH1_BtnDepartamento")
-    switch_to_frame(driver, "frame0")
-    print("Dept. detalle")
+    extracted_data = []  # Lista para almacenar los datos extraídos en este nivel
 
-    departamentos = driver.find_elements(By.XPATH, "//tr[starts-with(@id, 'tr')]")
+    if context is None:
+        context = {}
 
-    for i, depto in enumerate(departamentos):
-        departamentos = driver.find_elements(
-            By.XPATH, "//tr[starts-with(@id, 'tr')]"
-        )  # Refrescar la lista
-        depto = departamentos[i]  # Usar el elemento actualizado
-        depto_nombre = depto.find_element(By.XPATH, "./td[2]").text.strip()
+    print(f"\n📌 Entrando a nivel: {current_level}")
 
-        click_on_element(driver, f"tr{i}")
-        switch_to_frame(driver, "frame0")
-        click_on_element(driver, "ctl00_CPH1_BtnProvincia")
-        switch_to_frame(driver, "frame0")
-        print(f"{depto_nombre} seleccionado")
+    level_config = route_config["levels"][current_level]
+    button = level_config.get("button")
+    list_xpath = level_config.get("list_xpath")
+    name_xpath = level_config.get("name_xpath")
+    next_level = level_config.get("next_level")
+    table_id = level_config.get("table_id")
 
-        provincias = driver.find_elements(By.XPATH, "//tr[starts-with(@id, 'tr')]")
+    # Hacer clic en el botón del nivel si existe
+    if button:
+        print(f"🔘 Haciendo clic en botón: {button}")
+        click_on_element(driver, button)
+        switch_to_frame(driver, a_config.GLOBAL_SELECTORS["main_frame"])
 
-        for j, prov in enumerate(provincias):
-            provincias = driver.find_elements(
-                By.XPATH, "//tr[starts-with(@id, 'tr')]"
-            )  # Refrescar la lista
-            prov = provincias[j]  # Usar el elemento actualizado
-            prov_nombre = prov.find_element(By.XPATH, "./td[2]").text.strip()
+    # Si el nivel tiene una lista definida, iterar sobre los elementos
+    if list_xpath:
+        elements = driver.find_elements(By.XPATH, list_xpath)
+        print(f"📋 Se encontraron {len(elements)} elementos en {current_level}")
 
-            click_on_element(driver, f"tr{j}")
-            switch_to_frame(driver, "frame0")
-            click_on_element(driver, "ctl00_CPH1_BtnMunicipalidad")
-            switch_to_frame(driver, "frame0")
-            print(f"{prov_nombre} seleccionado")
+        for i in range(len(elements)):
+            elements = driver.find_elements(
+                By.XPATH, list_xpath
+            )  # Refrescar lista para evitar referencias obsoletas
+            element = elements[i]
+            element_name = element.find_element(By.XPATH, name_xpath).text.strip()
+            context[current_level] = element_name  # Guardar el nombre en el contexto
+            print(f"➡️ Entrando en: {element_name}")
 
-            # Obtener los encabezados solo la primera vez
-            if not encabezados_extraidos:
-                encabezados_extraidos = get_final_headers(driver, "ctl00_CPH1_Mt0")
+            # Hacer clic en el elemento actual
+            click_on_element(driver, f"tr{i}")
+            switch_to_frame(driver, a_config.GLOBAL_SELECTORS["main_frame"])
 
-            # Extraer los datos de la tabla de municipalidades
-            datos_municipalidad = extract_table_data(driver)
+            # Navegar al siguiente nivel (si existe)
+            if next_level:
+                print(f"🔽 Navegando al siguiente nivel: {next_level}")
+                extracted_data.extend(
+                    navigate_levels(
+                        driver, route_config, next_level, table_headers, context
+                    )
+                )
 
-            # Agregar metadatos: Año, Departamento, Provincia
-            for fila in datos_municipalidad:
-                fila_con_meta = [year, depto_nombre, prov_nombre] + fila
-                datos_anio.append(fila_con_meta)
-
-            # Volver a la lista de provincias
+            # Regresar al nivel anterior
+            print(f"⬅️ Regresando a {current_level}")
             driver.back()
-            switch_to_frame(driver, "frame0")
+            switch_to_frame(driver, a_config.GLOBAL_SELECTORS["main_frame"])
 
-        # Volver a la lista de departamentos
-        driver.back()
-        switch_to_frame(driver, "frame0")
+    else:
+        # Si no hay lista, navegar directamente al siguiente nivel
+        if next_level:
+            print(f"⏭️ Saltando a siguiente nivel: {next_level}")
+            extracted_data.extend(
+                navigate_levels(
+                    driver, route_config, next_level, table_headers, context
+                )
+            )
+        else:
+            # **📌 Si es el último nivel, extraer datos**
+            if table_id:
+                # Extraer encabezados de la tabla solo una vez
+                if not table_headers:
+                    print("📌 Extrayendo encabezados de la tabla...")
+                    table_headers.extend(get_final_headers(driver, table_id))
 
-    # Retornar los datos y los encabezados extraídos
-    return datos_anio, encabezados_extraidos
+                print(f"📊 Extrayendo datos de la tabla: {table_id}")
+                table_data = extract_table_data(driver)
+
+                # Construir cada fila incluyendo los niveles donde hubo iteración
+                for row in table_data:
+                    formatted_row = [context[level] for level in context.keys()] + row
+                    extracted_data.append(formatted_row)
+
+    print(f"✅ Saliendo de nivel: {current_level}")
+    return extracted_data
+
+
+def extract_data_by_year(driver, year, route_name, table_headers):
+    """
+    Extrae los datos de la página para un año específico basado en la ruta configurada.
+
+    :param driver: Instancia de Selenium WebDriver.
+    :param year: Año para el cual se extraen los datos.
+    :param route_name: Nombre de la ruta en ROUTES.
+    :param table_headers: Lista compartida para almacenar los encabezados una sola vez.
+    :return: Datos extraídos.
+    """
+    print(f"\n🗓️ Iniciando extracción para el año {year}, ruta: {route_name}")
+    datos_anio = []
+
+    # Seleccionar el año en el dropdown
+    select_dropdown_option(driver, a_config.GLOBAL_SELECTORS["year_dropdown"], year)
+    switch_to_frame(driver, a_config.GLOBAL_SELECTORS["main_frame"])
+
+    # Obtener la configuración de la ruta
+    route_config = a_config.ROUTES[route_name]
+
+    # Determinar el primer nivel dinámicamente
+    first_level = min(
+        route_config["levels"].keys(), key=lambda lvl: int(lvl.split("_")[1])
+    )
+
+    # Navegar a través de los niveles desde el primer nivel
+    datos_extraidos = navigate_levels(driver, route_config, first_level, table_headers)
+
+    # Agregar metadatos: Año...
+    for fila in datos_extraidos:
+        fila_con_meta = [year] + fila
+        datos_anio.append(fila_con_meta)
+
+    print("✅ Extracción completada")
+    return datos_anio
 
 
 def save_data(nombre_archivo, datos, encabezados):
@@ -304,56 +354,76 @@ def save_data(nombre_archivo, datos, encabezados):
         print(f"Error al guardar en Excel: {e}")
 
 
+def select_route():
+    """
+    Muestra las rutas disponibles y permite al usuario seleccionar una.
+    """
+    print("\n--- Rutas disponibles ---")
+    rutas_disponibles = list(a_config.ROUTES.keys())
+
+    for i, ruta in enumerate(rutas_disponibles, start=1):
+        print(f"{i}: {ruta}")
+
+    while True:
+        try:
+            opcion = int(input("\nElige una ruta (número): "))
+            if 1 <= opcion <= len(rutas_disponibles):
+                return rutas_disponibles[opcion - 1]
+            else:
+                print("⚠️ Opción inválida, ingresa un número de la lista.")
+        except ValueError:
+            print("⚠️ Entrada inválida, ingresa un número.")
+
+
 def main():
     """
-    Función principal para iniciar el proceso de scraping.
+    Función principal para iniciar el proceso de scraping con selección de ruta.
+    Guarda los datos recolectados incluso si ocurre un error.
     """
     driver = initialize_driver()
     todos_los_datos = []
-    encabezados_municipalidad = []
+    table_headers = []
 
     try:
         navigate_to_url(driver, a_config.URL)
 
-        for year in a_config.YEARS:
-            print(f"Extrayendo datos para el año {year}...")
-            datos_anio, encabezados_tabla = extract_data_by_year(driver, year)
+        ruta_seleccionada = select_route()
+        print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
 
-            # Guardar los encabezados solo si aún no se han extraído
-            if not encabezados_municipalidad and encabezados_tabla:
-                encabezados_municipalidad = encabezados_tabla
+        # Iterar sobre los años y extraer datos
+        for year in a_config.YEARS:
+            datos_anio = extract_data_by_year(
+                driver, year, ruta_seleccionada, table_headers
+            )
 
             todos_los_datos.extend(datos_anio)
 
     except Exception as e:
-        print(f"Se produjo un error en el proceso: {e}")
-        # Guardar los datos recolectados hasta el momento del error
+        print(f"Se produjo un error inesperado: {e}")
+
+        # Guardar datos parciales si hubo un error
         if todos_los_datos:
-            print("Guardando los datos recolectados hasta el momento...")
-            encabezados_completos = (
-                a_config.ENCABEZADOS_BASE + encabezados_municipalidad
-            )
+            print("💾 Guardando datos parciales antes de cerrar...")
+            encabezados_completos = a_config.ENCABEZADOS_BASE + table_headers
             save_data(
                 os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA_PARCIAL),
                 todos_los_datos,
                 encabezados_completos,
             )
-        else:
-            print("No hay datos para guardar.")
 
     finally:
-        # Guardar los datos recolectados en un archivo Excel
+        # Guardar los datos finales si se obtuvieron datos completos
         if todos_los_datos:
-            encabezados_completos = (
-                a_config.ENCABEZADOS_BASE + encabezados_municipalidad
-            )
+            print("💾 Guardando datos finales...")
+            encabezados_completos = a_config.ENCABEZADOS_BASE + table_headers
             save_data(
                 os.path.join(a_config.PATH_DATA_RAW, a_config.ARCHIVO_SALIDA),
                 todos_los_datos,
                 encabezados_completos,
             )
+
         driver.quit()
-        print("Driver cerrado correctamente.")
+        print("✅ Proceso finalizado, driver cerrado.")
 
 
 if __name__ == "__main__":

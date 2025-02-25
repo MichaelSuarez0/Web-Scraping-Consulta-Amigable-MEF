@@ -159,17 +159,18 @@ Este script es el núcleo del proceso de scraping. Su función principal es auto
 * Define funciones especializadas.
 
 El script se compone de las siguientes funciones creadas:
-
-* `initialize_driver()` → Configura y lanza el WebDriver.
-* `navigate_to_url()` → Accede a la URL objetivo.
-* `switch_to_frame()` → Reinicia/cambia el contexto al frame especificado.
-* `click_on_element()` → Hace clic en un elemento de la página.
-* `select_dropdown_option()` → Selecciona una opción en un desplegable.
-* `extract_table_data()` → Extrae datos de una tabla en la web.
-* `get_final_headers()` → Extrae los encabezados de la tabla en la web.
-* `extract_data_by_year()` → Realiza la navegación iterativa por cada año y demás niveles definidos.
-* `save_data()` → Guarda los datos extraídos.
-* `main()` → Función principal que llama a las funciones en el orden correcto para la ejecución del scraper.
+| **Función**               | **Descripción**                           |
+|---------------------------|-------------------------------------------|
+|`initialize_driver()`      | Configura y lanza el WebDriver.|
+|`navigate_to_url()`        | Accede a la URL objetivo.|
+|`switch_to_frame()`        | Reinicia/cambia el contexto al frame especificado.|
+|`click_on_element()`       | Hace clic en un elemento de la página.|
+|`select_dropdown_option()` | Selecciona una opción en un desplegable.|
+|`extract_table_data()`     | Extrae datos de una tabla en la web.|
+|`get_final_headers()`      | Extrae los encabezados de la tabla en la web.|
+|`extract_data_by_year()`   | Realiza la navegación iterativa por cada año y demás niveles definidos.|
+|`save_data()`              | Guarda los datos extraídos.|
+|`main()`                   | Función principal que llama a las funciones en orden.|
 
 El siguiente diagrama muestra la lógica de todo el proceso.
 
@@ -266,7 +267,7 @@ Los valores predeterminados no requieren modificaciones, excepto `YEARS`, que de
 ```python
 YEARS = list(range(2024, 2026))
 ```
-Como resultado definirá los año 2024-2025 para el scraping (al definir un rango Python no incluye el rango superior).
+Como resultado definirá los años 2024-2025 para el scraping (al definir un rango Python no incluye el rango superior).
 
 3. Guardar los cambios y cerrar `a_config.py` .
 
