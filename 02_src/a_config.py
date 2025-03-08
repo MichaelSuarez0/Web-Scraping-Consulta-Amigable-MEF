@@ -42,7 +42,7 @@ URL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
 # =====================
 
 # Años de consulta
-YEARS = list(range(2022, 2023))  # no incluye el límite superior
+YEARS = list(range(2024, 2026))  # no incluye el límite superior
 
 
 # Selectores generales: año y frame principal

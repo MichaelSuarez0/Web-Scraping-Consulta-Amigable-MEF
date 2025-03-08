@@ -11,9 +11,16 @@ env/
 
 # Archivos temporales de Python
 __pycache__/
+.gitignore
 *.pyc
 *.pyo
-z_test.py
+README-noshare.md
+README-noshare.PDF
+README-noshare.HTML
+*MUNICIPALIDADES.xlsx
+*SECTORES.xlsx
+requirements_d.txt
+d_analysis-noshare.ipynb
 
 # Archivos de logs
 *.log
