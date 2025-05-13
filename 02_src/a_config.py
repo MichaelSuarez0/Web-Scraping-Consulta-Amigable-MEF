@@ -28,14 +28,14 @@ import os
 # 1: Configuración del WebDriver y Navegación
 # =====================
 
-# Directorios
-PATH_BASE = os.getcwd()
+# Directorios (con importación relativa)
+PATH_BASE = os.path.join(os.path.dirname(__file__), "..")
 PATH_DATA_RAW = os.path.join(PATH_BASE, "01_data/01_raw")
 PATH_DATA_PRO = os.path.join(PATH_BASE, "01_data/02_processed")
-PATH_DRIVER = os.path.join(PATH_BASE, "03_config/chromedriver/chromedriver.exe")
-# Url
-URL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
 
+# Url
+URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
+URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/"
 
 # =====================
 # 2: Parámetros de Scraping
@@ -55,42 +55,42 @@ ROUTES = {
     "MUNICIPALIDADES": {
         "levels": {
             "level_1": {  # Detalle niveles de gobierno
-                "button": "ctl00_CPH1_BtnTipoGobierno",  # Botón XPath
+                "button": "button[id='ctl00_CPH1_BtnTipoGobierno']",  # Botón XPath
                 "list_xpath": None,  # Lista para iterar
                 "next_level": "level_2",  # Siguiente nivel
             },
             "level_2": {  # Nivel de gobierno: Gob locales
-                "button": "ctl00_CPH1_RptData_ctl02_TD0",
+                "button": "button[id='ctl00_CPH1_RptData_ctl02_TD0']",
                 "list_xpath": None,
                 "next_level": "level_3",
             },
             "level_3": {  # Subtipo de gobierno locales
-                "button": "ctl00_CPH1_BtnSubTipoGobierno",
+                "button": "button[id='ctl00_CPH1_BtnSubTipoGobierno']",
                 "list_xpath": None,
                 "next_level": "level_4",
             },
             "level_4": {  # Gobiernos local: Municipalidades
-                "button": "ctl00_CPH1_RptData_ctl01_TD0",
+                "button": "button[id='ctl00_CPH1_RptData_ctl01_TD0']",
                 "list_xpath": None,
                 "next_level": "level_5",
             },
             "level_5": {  # Departamentos
-                "button": "ctl00_CPH1_BtnDepartamento",
+                "button": "button[id='ctl00_CPH1_BtnDepartamento']",
                 "list_xpath": "//tr[starts-with(@id, 'tr')]",
                 "name_xpath": "./td[2]",
                 "next_level": "level_6",
             },
             "level_6": {  # Provincias
-                "button": "ctl00_CPH1_BtnProvincia",
+                "button": "button[id='ctl00_CPH1_BtnProvincia']",
                 "list_xpath": "//tr[starts-with(@id, 'tr')]",
                 "name_xpath": "./td[2]",
                 "next_level": "level_7",
             },
             "level_7": {  # Lista Municipalidades (último nivel)
-                "button": "ctl00_CPH1_BtnMunicipalidad",
+                "button": "button[id='ctl00_CPH1_BtnMunicipalidad']",
                 "list_xpath": None,
                 "name_xpath": None,
-                "table_id": "ctl00_CPH1_Mt0",  # Se extrae la tabla aquí
+                "table_id": "table[id='ctl00_CPH1_Mt0']",  # Se extrae la tabla aquí
                 "next_level": None,  # Último nivel
             },
         },
