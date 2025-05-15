@@ -25,14 +25,8 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
-import sys
 import os
-
 import pandas as pd
-import numpy as np
-
-# Configuración desde 02_src/0_config.py
-sys.path.append(os.path.join(os.getcwd(), "02_src"))
 import a_config
 
 # =====================
