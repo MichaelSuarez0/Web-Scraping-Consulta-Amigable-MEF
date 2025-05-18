@@ -19,82 +19,89 @@ Usage:
 """
 
 # =====================
-# Importación de librerías
+# 0: Importación de librerías
 # =====================
-
+from dataclasses import dataclass
+from typing import Optional, List, Dict, Any
 import os
-
 # =====================
-# 1: Configuración del WebDriver y Navegación
-# =====================
-
-# Directorios (con importación relativa)
-PATH_BASE = os.path.join(os.path.dirname(__file__), "..")
-PATH_DATA_RAW = os.path.join(PATH_BASE, "01_data/01_raw")
-PATH_DATA_PRO = os.path.join(PATH_BASE, "01_data/02_processed")
-
-# Url
-URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
-URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/"
-
-# =====================
-# 2: Parámetros de Scraping
+# 1: Parámetros de Scraping
 # =====================
 
 # Años de consulta
 YEARS = list(range(2024, 2026))  # no incluye el límite superior
-
+PATH_BASE = os.getcwd()
 
 # Selectores generales: año y frame principal
 GLOBAL_SELECTORS = {"year_dropdown": "ctl00_CPH1_DrpYear", "main_frame": "frame0"}
 
 
-# Definir múltiples rutas con sus niveles
-ROUTES = {
-    # Ruta 1
-    "MUNICIPALIDADES": {
-        "levels": {
-            "level_1": {  # Detalle niveles de gobierno
-                "td": "id='ctl00_CPH1_RptData_ctl01_TD0'",
-                "input": "id='ctl00_CPH1_BtnTipoGobierno'",
-                "list_xpath": None,  # Lista para iterar
-                "next_level": "level_2",  # Siguiente nivel
-            },
-            "level_2": {  # Nivel de gobierno: Gob locales
-                "td": 'id="ctl00_CPH1_RptData_ctl02_TD0"',
-                "input": 'id="ctl00_CPH1_RptData_ctl02_TD0"',
-                "list_xpath": None,
-                "next_level": "level_3",
-            },
-            "level_3": {  # Gobiernos local: Municipalidades
-                "td": 'id="ctl00_CPH1_RptData_ctl01_TD0"',
-                "input": 'id="ctl00_CPH1_BtnDepartamento"',
-                "list_xpath": None,
-                "next_level": "level_4",
-            },
-            "level_4": {  # Departamentos
-                "td": None,
-                "tr": 'id="tr0"',
-                "input": 'td[id="ctl00_CPH1_BtnProvincia"]',
-                "name_xpath": "./td[2]",
-                "next_level": "level_6",
-            },
-            "level_5": {  # Departamentos
-                "td": None,
-                "tr": 'id="tr0"',
-                "input": 'id="ctl00_CPH1_BtnMunicipalidad"',
-                "name_xpath": "./td[2]",
-                "next_level": "level_6",
-            },
-            "level_6": {  # Municipalidades
-                "input": "id='ctl00_CPH1_BtnMunicipalidad'",
-                "list_xpath": "//tr[starts-with(@id, 'tr')]",
-                "name_xpath": "./td[2]",
-                "next_level": False,
-                "table": "id='ctl00_CPH1_Mt0'",  # Se extrae la tabla aquí
-            },
-        },
+@dataclass
+class LevelConfig:
+    name: str
+    button: Optional[str] = None
+    row: Optional[str] = None
+    table_rows: Optional[str] = None
+    list_xpath: Optional[str] = None
+    name_xpath: Optional[str] = None
+    table: Optional[str] = None
+    is_final: bool = False
+
+@dataclass
+class RouteConfig:
+    name: str
+    file: dict[Any]
+    cleaning: dict[Any]
+    levels: List[LevelConfig]
+
+# Creación de configuraciones
+ROUTE_MUNICIPALIDADES = RouteConfig(
+    name="MUNICIPALIDADES",
+    file = {
+        "ENCABEZADOS_BASE": ["Año", "Departamento", "Provincia"],  # Encabezados base
+        "FILE_NAME": "EJECUCION_GASTO_GL_X_MUNICIPALIDADES.xlsx",  # Nombre del archivo de salida
     },
+    cleaning = {
+        "ENCABEZADOS_PROCESADOS": [
+            ["Departamento", ["UBI_DPTO", "Departamento"], ":"],
+            ["Provincia", ["UBI_PROV", "Provincia"], ":"],
+            ["Municipalidad", ["UBI_DIST", "COD_SIAF", "Municipalidad"], "-|:"],
+        ],
+    },
+    levels=[
+        LevelConfig(
+            name="Tipos de Gobierno",
+            row='td:has-text("TOTAL")',
+            button='input[value="Nivel de Gobierno"]'
+        ),
+        LevelConfig(
+            name="Subtipos de Gobierno",
+            row='td:has-text("GOBIERNOS LOCALES")',
+            button='input[id="ctl00_CPH1_BtnSubTipoGobierno"]'
+        ),
+        LevelConfig(
+            name="Municipalidades",
+            row='td:has-text("MUNICIPALIDADES")',
+            button='input[id="ctl00_CPH1_BtnDepartamento"]'
+        ),
+        LevelConfig(
+            name="Departamentos",
+            table_rows= True,
+            button='input.Button[value="Provincia"]'
+        ),
+        LevelConfig(
+            name="Provincias",
+            table_rows=True,
+            button='input[value="Municipalidad"]',
+        ),
+        LevelConfig(
+            name="Municipalidades",
+            table="table.MapTable",
+            is_final=True
+        )
+    ]
+)
+"""
     # Ruta 2
     "SECTORES": {
         "levels": {
@@ -130,7 +137,7 @@ ROUTES = {
         },
     },
 }
-
+"""
 
 # =====================
 # 3: Parámetros de Procesamiento

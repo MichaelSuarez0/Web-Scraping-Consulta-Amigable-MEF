@@ -1,0 +1,1 @@
+from .src_playwright import ConsultaAmigable, ROUTE_MUNICIPALIDADES, RouteConfig

@@ -1,1 +1,0 @@
-from b_scraper import ConsultaAmigable

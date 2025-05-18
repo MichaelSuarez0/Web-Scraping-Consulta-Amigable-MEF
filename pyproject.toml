@@ -1,0 +1,33 @@
+[project]
+name = "Consulta_amigable"
+version = "0.1.1"
+description = "Web scraping con Playwright para Consulta Amigable"
+readme = "README.md"
+requires-python = ">=3.8"
+
+dependencies = [
+    "playwright>=1.35.0",
+    "asyncio>=3.4.3",
+    "python-dotenv>=1.0.0",
+    "dataclasses-json>=0.5.7",
+    "pandas>=2.0.0",  # Para análisis de datos
+    "tqdm>=4.65.0",   # Para barras de progreso
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.1.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["src_playwright"] 
+
+[tool.setuptools.package-data]
+"src_playwright" = ["resources/*.json", "config/*.py"]

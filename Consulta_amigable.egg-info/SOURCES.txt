@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+Consulta_amigable.egg-info/PKG-INFO
+Consulta_amigable.egg-info/SOURCES.txt
+Consulta_amigable.egg-info/dependency_links.txt
+Consulta_amigable.egg-info/requires.txt
+Consulta_amigable.egg-info/top_level.txt
+src_playwright/__init__.py
+src_playwright/a_config.py
+src_playwright/b_scraper.py
+src_playwright/c_cleaner.py
