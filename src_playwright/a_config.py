@@ -41,9 +41,7 @@ class LevelConfig:
     name: str
     button: Optional[str] = None
     row: Optional[str] = None
-    table_rows: Optional[str] = None
-    list_xpath: Optional[str] = None
-    name_xpath: Optional[str] = None
+    table_rows: Optional[bool] = False
     table: Optional[str] = None
     is_final: bool = False
 
@@ -87,7 +85,8 @@ ROUTE_MUNICIPALIDADES = RouteConfig(
         LevelConfig(
             name="Departamentos",
             table_rows= True,
-            button='input.Button[value="Provincia"]'
+            # row='td:has-text("Ayacucho")',
+            button='input[value="Provincia"]'
         ),
         LevelConfig(
             name="Provincias",

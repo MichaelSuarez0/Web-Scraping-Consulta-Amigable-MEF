@@ -72,14 +72,13 @@ class ConsultaAmigable():
         self.URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
         self.route_config = ruta
         self.years = years
-        self.datos = []
+        self.extracted_data = []
         self.headers = []
         self.context = {}
         self.level_index = 0
         self.playwright = None
         self.browser = None
         self.page = None
-        
 
     async def initialize_driver(self):
         """
@@ -91,6 +90,7 @@ class ConsultaAmigable():
         self.page = await context.new_page()
         self.page.set_default_timeout(15_000)
         self.page.set_default_navigation_timeout(20_000)
+        
 
     async def cerrar_navegador(self):
         """
@@ -196,41 +196,39 @@ class ConsultaAmigable():
         omitiendo la primera columna vacía (botón) y obteniendo
         los niveles inferiores cuando hay agrupación.
         """
-        try:
-            tabla = self.page.locator(tabla_id)
-            primer_encabezado = self.page.locator("tr[id='ctl00_CPH1_Mt0_Row0']")
-            segundo_encabezado = self.page.locator("tr[id='ctl00_CPH1_Mt0_Row1']")
-            tds = primer_encabezado.locator("td").all()
+        if not self.headers:
+            try:
+                tabla = self.page.locator(tabla_id)
+                primer_encabezado = self.page.locator("tr[id='ctl00_CPH1_Mt0_Row0']")
+                segundo_encabezado = self.page.locator("tr[id='ctl00_CPH1_Mt0_Row1']")
+                tds = await primer_encabezado.locator("td").all()
 
-            encabezados = []
-            idx_inferior = 0  # Índice para recorrer fila_inferior cuando haya agrupación
+                idx_inferior = 0  # Índice para recorrer fila_inferior cuando haya agrupación
 
-            for i, td in enumerate(tds):
-                # Omitir la primera celda si está vacía (botón)
-                td: Locator
-                if i == 0:
-                    continue
+                for i, td in enumerate(tds):
+                    # Omitir la primera celda si está vacía (botón)
+                    if i == 0:
+                        continue
 
-                colspan = td.get_attribute("colspan")
+                    colspan = await td.get_attribute("colspan")
 
-                if colspan:  # Si hay agrupación, tomar encabezados del nivel inferior
-                    for _ in range(int(colspan)):
-                        encabezado = await segundo_encabezado[idx_inferior].inner_text()
-                        encabezados.append(encabezado.strip())
-                        idx_inferior += 1
-                else:  # Si no hay agrupación, tomar el texto directamente
-                    encabezado = await td.inner_text()
-                    encabezados.append(encabezado.strip())
+                    if colspan:  # Si hay agrupación, tomar encabezados del nivel inferior
+                        for _ in range(int(colspan)):
+                            encabezado = await segundo_encabezado.locator("td").nth(i + idx_inferior).inner_text()
+                            self.headers.append(encabezado.strip())
+                            idx_inferior += 1
+                    else:  # Si no hay agrupación, tomar el texto directamente
+                        encabezado = await td.inner_text()
+                        self.headers.append(encabezado.strip())
 
-            logging.info(f"Encabezados extraídos: {encabezados}")
-            return encabezados
+                logging.info(f"Encabezados extraídos: {self.headers}")
 
-        except Exception as e:
-            print(f"Error al obtener encabezados: {e}")
-            return []
+            except Exception as e:
+                print(f"Error al obtener encabezados: {e}")
+            
+            
 
-
-    async def navigate_levels(self)-> list:
+    async def assert_levels(self, custom_row: str = "")-> None:
         """
         Navega a través de los niveles definidos en la configuración.
 
@@ -240,75 +238,77 @@ class ConsultaAmigable():
         :param context: Diccionario para almacenar la jerarquía para iterar.
         :return: Lista con los datos extraídos.
         """
-
-        extracted_data = []  # Lista para almacenar los datos extraídos en este nivel
         level = self.route_config.levels[self.level_index]
-        # level_config = self.route_config["levels"][current_level]
-        # button = f"input[{level_config.get('input')}]"
-        # row = f"td[{level_config.get("td")}]"
-        # list_xpath = level_config.get("list_xpath")
-        # #name_xpath = level_config.get("name_xpath")
-        # next_level = level_config.get("next_level")
-        # table_id = level_config.get("table_id")
+                    
+        if level.button:
+            if level.row:
+                await self.navigate_level_simple(level.row, level.button)
+            elif custom_row:
+                await self.navigate_level_simple(custom_row, level.button)
+            elif level.table_rows:
+                await self.iterate_over_levels(level.button)
 
-        # Hacer clic en el botón del nivel si existe
-        if level.row:
-            await self.click_on_element(level.row)
-        
-        if level.button and not level.table_rows:
-            await self.click_on_element(level.button)
 
-        # Si el nivel tiene una lista definida, iterar sobre los elementos
-        if level.table_rows:
-            iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
-            await iframe.wait_for_selector("table.Data", timeout=5000)
-            filas = await iframe.locator("table.Data > tbody > tr").all()
-            print(filas)
-            logging.info(f"📋 Se encontraron {len(filas)} elementos en {level.name}")
+    async def assert_extraction(self):
+        level = self.route_config.levels[self.level_index]
+        if level.table:
+            #await self._extract_table_data()
+            if not self.table_headers:
+                await self.get_final_headers(level.table)
+                logging.info(f"📊 Extrayendo datos de la tabla: {level.table}")
+                table_data = await self._extract_table_data()
 
-            for i in range(len(filas)):
-                element = filas[i]
-                element_name = await element.inner_text()
-                self.context[level.name] = element_name  # Guardar el nombre en el contexto
-                logging.info(f"➡️ Entrando en: {element_name}")
+                # Construir cada fila incluyendo los niveles donde hubo iteración
+                for row in table_data:
+                    formatted_row = [self.context[level] for level in self.context.keys()] + row
+                    self.extracted_data.append(formatted_row)
                 
-                await self.click_on_element(element)
-                await self.click_on_element(level.button)
+    
+    async def navigate_level_simple(self, row: str, button: str)-> None:
+        await self.click_on_element(row)
+        await self.click_on_element(button)
+        self.level_index += 1
+    
+    
+    async def iterate_over_levels(self, button: str)-> list:
+        """
+        Navega a través de cada fila en el nivel actual, guardando el contexto,
+        extrayendo datos y manejando la navegación hacia adelante y atrás para
+        mantener la consistencia durante la exploración jerárquica.
+        """
+        level = self.route_config.levels[self.level_index]
+        iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
+        await iframe.wait_for_selector("table.Data")
+        filas = await iframe.locator("table.Data > tbody > tr").all()
+        logging.info(f"📋 Se encontraron {len(filas)} elementos en {level.name}")
 
-                # Navegar al siguiente nivel (si existe)
-                if not level.is_final:
-                    self.level_index += 1
-                    extracted_data.extend(await self.navigate_levels())
-
-                # Regresar al nivel anterior
-                logging.info(f"⬅️ Regresando a {level.name}")
-                self.level_index -= 1
-                await self.page.go_back()
-                #await self.page.wait_for_load_state('networkidle')
-
-        else:
-            # Si no hay lista, navegar directamente al siguiente nivel
-            if not level.is_final:
-                logging.info(f"⏭️ Saltando a siguiente nivel: {level.name}")
-                self.level_index += 1
-                extracted_data.extend(
-                    await self.navigate_levels())
+        for i in range(len(filas)):
+            fila = filas[i]
+            element_name = await fila.inner_text()
+            self.context[level.name] = element_name  # Guardar el nombre en el contexto
+            logging.info(f"➡️ Entrando en: {element_name}")
+            
+            await self.navigate_level_simple(fila, button)
+            await self.assert_extraction()
+            levels_left = len(self.route_config.levels) - (self.level_index + 1)
+            if not levels_left < 0:
+                for _ in range(levels_left):
+                    await self.assert_levels()
+                for _ in range(levels_left):
+                    await iframe.wait_for_selector("table.Data")
+                    try:
+                        await self.page.go_back(timeout=100)
+                    except TimeoutError:
+                        pass
+                    self.level_index -= 1        
             else:
-                if level.table:
-                    if not self.table_headers:
-                        logging.info("📌 Extrayendo encabezados de la tabla...")
-                        self.table_headers.extend(await self.get_final_headers(level.table))
-
-                    logging.info(f"📊 Extrayendo datos de la tabla: {level.table}")
-                    table_data = await self._extract_table_data()
-
-                    # Construir cada fila incluyendo los niveles donde hubo iteración
-                    for row in table_data:
-                        formatted_row = [self.context[level] for level in self.context.keys()] + row
-                        extracted_data.append(formatted_row)
-
-        logging.info(f"✅ Saliendo de nivel: {level.name}")
-        return extracted_data
+                await iframe.wait_for_selector("table.Data")
+                try:
+                    await self.page.go_back(timeout=100)
+                except TimeoutError:
+                    logging.info("Se dio vuelta normalmente")
+                    pass
+                self.level_index -= 1
 
 
     async def extract_data_by_year(self):
@@ -324,18 +324,19 @@ class ConsultaAmigable():
             print(f"\n🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.name}")
             datos_anio = []
             await self.navigate_to_url(year)
+            
+            iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
+            await iframe.wait_for_selector("table.Data")
 
             # Navegar a través de los niveles desde el primer nivel
             for level in self.route_config.levels:
-                datos_extraidos = await self.navigate_levels()
+                await self.assert_levels()
 
                 # Agregar metadatos: Año...
-                for fila in datos_extraidos:
+                for fila in self.extracted_data:
                     fila_con_meta = [year] + fila
                     datos_anio.append(fila_con_meta)
-
-                print("✅ Extracción completada")
-                return datos_anio
+            self.level_index = 0
 
 
     def save_data(nombre_archivo, datos, encabezados):
@@ -362,6 +363,7 @@ class ConsultaAmigable():
         await self.initialize_driver()
         todos_los_datos = []
         self.table_headers = []
+        
 
         try:
             #await session.navigate_levels()
@@ -369,19 +371,17 @@ class ConsultaAmigable():
             #print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
 
             # Obtener configuración de la ruta seleccionada
-            # file_conf = self.FILE_CONFIGS.get(ruta_seleccionada, {})
             encabezados_base = self.route_config.file.get("ENCABEZADOS_BASE", [])
             # archivo_scraping = file_conf.get("ARCHIVO_SCRAPING", [])
 
             # Iterar sobre los años y extraer datos
         
             datos_anio = await self.extract_data_by_year()
-
             todos_los_datos.extend(datos_anio)
 
-        except Exception as e:
-            print(f"Se produjo un error inesperado: {e}")
-            logging.info("💾 Guardando datos parciales antes de cerrar...")
+        # except Exception as e:
+        #     print(f"Se produjo un error inesperado: {e}")
+        #     logging.info("💾 Guardando datos parciales antes de cerrar...")
 
         finally:
             # Guardar los datos finales si se obtuvieron datos completos
