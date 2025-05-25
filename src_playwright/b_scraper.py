@@ -75,6 +75,7 @@ class ConsultaAmigable():
         self.extracted_data = []
         self.headers = []
         self.context = {}
+        self.click_number = 0
         self.level_index = 0
         self.playwright = None
         self.browser = None
@@ -140,27 +141,9 @@ class ConsultaAmigable():
         iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
         if isinstance(element, str):
             await iframe.locator(element).click()
-            # else:
-            #     iframe = self.page.frame(name="frame0") 
-            #     await self.iframe.locator(element_id).click()
         elif isinstance(element, Locator):
             await element.click()
-
-    # async def select_dropdown_option(self, element_id, option_text):
-    #     """
-    #     Selecciona una opción de un elemento <select> utilizando el texto de la opción
-    #     """
-    #     try:
-    #         await self.page.wait_for_timeout(3000)
-    #         iframe = self.page.frame(a_config.GLOBAL_SELECTORS["main_frame"])
-    #         if iframe is not None:
-    #             self.iframe = iframe
-    #             await self.iframe.locator(f'select[id={element_id}]').select_option(str(option_text))
-    #         else:
-    #             iframe = self.page.frame(name="frame0") 
-    #             await iframe.locator(f'select[id={element_id}]').select_option(str(option_text))
-    #     except TimeoutError:
-    #         logging.error("No funcionó select dropdown")
+        self.click_number += 1
 
 
     async def _extract_table_data(self):
@@ -174,18 +157,16 @@ class ConsultaAmigable():
         iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
         # filas = await iframe.locator("table.Data").locator("tr").all()
         filas = await iframe.locator("table.Data").all()
-        logging.info(f"Se encontraron {len(filas)} filas.")
 
         # Extraer los datos de cada fila
         for i, fila in enumerate(filas):
             datos = await fila.locator("td").all_inner_texts()
             datos = [dato.replace(",", "").strip() for dato in datos]
-        
-            print(f"Fila {i + 1}: {datos}")
 
             # Agregar datos solo si la fila tiene contenido
             if datos:
                 datos_tabla.append(datos)
+            logging.info(f"Se extrayeron datos de {int(len(datos) / 10)} filas.")
 
         return datos_tabla
 
@@ -198,9 +179,10 @@ class ConsultaAmigable():
         """
         if not self.headers:
             try:
-                tabla = self.page.locator(tabla_id)
-                primer_encabezado = self.page.locator("tr[id='ctl00_CPH1_Mt0_Row0']")
-                segundo_encabezado = self.page.locator("tr[id='ctl00_CPH1_Mt0_Row1']")
+                iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
+                tabla = iframe.locator(tabla_id)
+                primer_encabezado = iframe.locator("tr[id='ctl00_CPH1_Mt0_Row0']")
+                segundo_encabezado = iframe.locator("tr[id='ctl00_CPH1_Mt0_Row1']")
                 tds = await primer_encabezado.locator("td").all()
 
                 idx_inferior = 0  # Índice para recorrer fila_inferior cuando haya agrupación
@@ -214,7 +196,7 @@ class ConsultaAmigable():
 
                     if colspan:  # Si hay agrupación, tomar encabezados del nivel inferior
                         for _ in range(int(colspan)):
-                            encabezado = await segundo_encabezado.locator("td").nth(i + idx_inferior).inner_text()
+                            encabezado = await segundo_encabezado.locator("td").nth(idx_inferior).inner_text()
                             self.headers.append(encabezado.strip())
                             idx_inferior += 1
                     else:  # Si no hay agrupación, tomar el texto directamente
@@ -228,7 +210,7 @@ class ConsultaAmigable():
             
             
 
-    async def assert_levels(self, custom_row: str = "")-> None:
+    async def navigate_levels(self, custom_row: str = "")-> None:
         """
         Navega a través de los niveles definidos en la configuración.
 
@@ -251,11 +233,13 @@ class ConsultaAmigable():
 
     async def assert_extraction(self):
         level = self.route_config.levels[self.level_index]
+        iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
+        await iframe.wait_for_selector("table.Data")
         if level.table:
             #await self._extract_table_data()
             if not self.table_headers:
                 await self.get_final_headers(level.table)
-                logging.info(f"📊 Extrayendo datos de la tabla: {level.table}")
+                #logging.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
                 table_data = await self._extract_table_data()
 
                 # Construir cada fila incluyendo los niveles donde hubo iteración
@@ -280,35 +264,36 @@ class ConsultaAmigable():
         iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
         await iframe.wait_for_selector("table.Data")
         filas = await iframe.locator("table.Data > tbody > tr").all()
-        logging.info(f"📋 Se encontraron {len(filas)} elementos en {level.name}")
+        logging.info(f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}")
 
         for i in range(len(filas)):
             fila = filas[i]
-            element_name = await fila.inner_text()
+            element_name = await fila.locator("td").nth(1).inner_text()
             self.context[level.name] = element_name  # Guardar el nombre en el contexto
             logging.info(f"➡️ Entrando en: {element_name}")
             
             await self.navigate_level_simple(fila, button)
             await self.assert_extraction()
             levels_left = len(self.route_config.levels) - (self.level_index + 1)
-            if not levels_left < 0:
+            if levels_left > 0:
                 for _ in range(levels_left):
-                    await self.assert_levels()
+                    await self.navigate_levels()
                 for _ in range(levels_left):
                     await iframe.wait_for_selector("table.Data")
                     try:
                         await self.page.go_back(timeout=100)
                     except TimeoutError:
                         pass
-                    self.level_index -= 1        
+                    
+                    self.level_index -= 1
+                    self.click_number += 1
             else:
-                await iframe.wait_for_selector("table.Data")
                 try:
                     await self.page.go_back(timeout=100)
                 except TimeoutError:
-                    logging.info("Se dio vuelta normalmente")
-                    pass
+                        pass
                 self.level_index -= 1
+                self.click_number += 1   
 
 
     async def extract_data_by_year(self):
@@ -321,7 +306,7 @@ class ConsultaAmigable():
         :return: Datos extraídos.
         """
         for year in self.years:
-            print(f"\n🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.name}")
+            logging.info(f"🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.name}")
             datos_anio = []
             await self.navigate_to_url(year)
             
@@ -330,12 +315,12 @@ class ConsultaAmigable():
 
             # Navegar a través de los niveles desde el primer nivel
             for level in self.route_config.levels:
-                await self.assert_levels()
+                await self.navigate_levels()
 
-                # Agregar metadatos: Año...
-                for fila in self.extracted_data:
-                    fila_con_meta = [year] + fila
-                    datos_anio.append(fila_con_meta)
+            # Agregar metadatos: Año...
+            for fila in self.extracted_data:
+                fila_con_meta = [year] + fila
+                datos_anio.append(fila_con_meta)
             self.level_index = 0
 
 
@@ -366,8 +351,6 @@ class ConsultaAmigable():
         
 
         try:
-            #await session.navigate_levels()
-
             #print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
 
             # Obtener configuración de la ruta seleccionada
@@ -375,7 +358,6 @@ class ConsultaAmigable():
             # archivo_scraping = file_conf.get("ARCHIVO_SCRAPING", [])
 
             # Iterar sobre los años y extraer datos
-        
             datos_anio = await self.extract_data_by_year()
             todos_los_datos.extend(datos_anio)
 
@@ -395,5 +377,6 @@ class ConsultaAmigable():
                 )
 
             await self.cerrar_navegador()
-            print("✅ Proceso finalizado, driver cerrado.")
+            logging.info("✅ Proceso finalizado, driver cerrado.")
+            logging.info(f"Se dieron {self.click_number} clicks")
 
