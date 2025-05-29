@@ -28,10 +28,6 @@ import os
 # 1: Parámetros de Scraping
 # =====================
 
-# Años de consulta
-YEARS = list(range(2024, 2026))  # no incluye el límite superior
-PATH_BASE = os.getcwd()
-
 # Selectores generales: año y frame principal
 GLOBAL_SELECTORS = {"year_dropdown": "ctl00_CPH1_DrpYear", "main_frame": "frame0"}
 
@@ -43,7 +39,34 @@ class LevelConfig:
     row: Optional[str] = None
     table_rows: Optional[bool] = False
     table: Optional[str] = None
-    is_final: bool = False
+
+    @property
+    def button_xpath(self):
+        if self.button is not None:
+            return f'//input[contains(translate(@value, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "{self.button.lower()}")]'
+        else:
+            return None
+    
+    # @property
+    # def row(self):
+    #     if self.row is not None:
+    #         return f'td:has-text("{self.row}")'
+    #     else:
+    #         return None
+    
+    # @property
+    # def button(self):
+    #     if self.button is not None:
+    #         return f'input[value="{self.button}"]'
+    #     else:
+    #         return None
+    
+    # @property
+    # def button(self):
+    #     if self.button is not None:
+    #         return f'input[value="{self.button}"]'
+    #     else:
+    #         return None
 
 @dataclass
 class RouteConfig:
@@ -85,7 +108,7 @@ ROUTE_MUNICIPALIDADES = RouteConfig(
         LevelConfig(
             name="Departamentos",
             table_rows= True,
-            # row='td:has-text("Ayacucho")',
+            #row='td:has-text("Ayacucho")',
             button='input[value="Provincia"]'
         ),
         LevelConfig(
@@ -96,7 +119,42 @@ ROUTE_MUNICIPALIDADES = RouteConfig(
         LevelConfig(
             name="Municipalidades",
             table="table.MapTable",
-            is_final=True
+        )
+    ]
+)
+
+ROUTE_SALUD = RouteConfig(
+    name="SALUD",
+    file = {
+        "ENCABEZADOS_BASE": ["Año", "Departamento", "Provincia"],  # Encabezados base
+        "FILE_NAME": "EJECUCION_GASTO_GL_X_MUNICIPALIDADES.xlsx",  # Nombre del archivo de salida
+    },
+    cleaning = {
+        "ENCABEZADOS_PROCESADOS": [
+            ["Departamento", ["UBI_DPTO", "Departamento"], ":"],
+            ["Provincia", ["UBI_PROV", "Provincia"], ":"],
+            ["Municipalidad", ["UBI_DIST", "COD_SIAF", "Municipalidad"], "-|:"],
+        ],
+    },
+    levels=[
+        LevelConfig(
+            name="Tipos de Gobierno",
+            row='td:has-text("TOTAL")',
+            button='de Gobierno'
+        ),
+        LevelConfig(
+            name="Subtipos de Gobierno",
+            row='td:has-text("GOBIERNO NACIONAL")',
+            button='Sector'
+        ),
+        LevelConfig(
+            name="Sector",
+            row='td:has-text("SALUD")',
+            button='Departamento'
+        ),
+        LevelConfig(
+            name="Departamento",
+            table='table.MapTable'
         )
     ]
 )
