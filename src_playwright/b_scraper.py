@@ -27,7 +27,7 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
-import os
+from pathlib import Path
 import pandas as pd
 from playwright.async_api import async_playwright, TimeoutError, Locator
 import logging
@@ -37,13 +37,13 @@ from .a_config import RouteConfig, LevelConfig
 # # Configuración básica del logging
 # =====================
 
-PATH_BASE = os.path.join(os.path.dirname(__file__))
-PATH_DATA_RAW = os.path.join(PATH_BASE, "01_data/01_raw")
-PATH_DATA_PRO = os.path.join(PATH_BASE, "01_data/02_processed")
+PATH_BASE = Path(__file__).parent
+PATH_DATA_RAW = PATH_BASE.parent / "data" / "01_raw"
+PATH_DATA_PRO = PATH_BASE.parent / "data" / "02_processed"
 
-LOG_DIR = os.path.join(PATH_BASE, "..", "05_logs")
-os.makedirs(LOG_DIR, exist_ok=True)
-LOG_PATH = os.path.join(LOG_DIR, "obtener_metadata.log")
+LOG_DIR = PATH_BASE.parent / "05_logs"
+LOG_DIR.mkdir(exist_ok=True)
+LOG_PATH = LOG_DIR / "consulta_amigable.log"
 
 logging.basicConfig(
     level=logging.INFO,  # Nivel de registro (INFO, DEBUG, WARNING, ERROR, CRITICAL)
@@ -155,8 +155,7 @@ class ConsultaAmigable():
 
         # Seleccionar todas las filas de la tabla con clase 'Data'
         iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
-        # filas = await iframe.locator("table.Data").locator("tr").all()
-        filas = await iframe.locator("table.Data").all()
+        filas = await iframe.locator("table.Data").locator("tr").all()
 
         # Extraer los datos de cada fila
         for i, fila in enumerate(filas):
@@ -166,7 +165,7 @@ class ConsultaAmigable():
             # Agregar datos solo si la fila tiene contenido
             if datos:
                 datos_tabla.append(datos)
-            logging.info(f"Se extrayeron datos de {int(len(datos) / 10)} filas.")
+        logging.info(f"Se extrajeron datos de {int(len(filas))} filas.")
 
         return datos_tabla
 
@@ -221,14 +220,15 @@ class ConsultaAmigable():
         :return: Lista con los datos extraídos.
         """
         level = self.route_config.levels[self.level_index]
-                    
+
+        await self.assert_extraction() 
         if level.button:
             if level.row:
-                await self.navigate_level_simple(level.row, level.button)
+                await self.navigate_level_simple(level.row, level.button_xpath)
             elif custom_row:
-                await self.navigate_level_simple(custom_row, level.button)
+                await self.navigate_level_simple(custom_row, level.button_xpath)
             elif level.table_rows:
-                await self.iterate_over_levels(level.button)
+                await self.iterate_over_levels(level.button_xpath)
 
 
     async def assert_extraction(self):
@@ -237,7 +237,7 @@ class ConsultaAmigable():
         await iframe.wait_for_selector("table.Data")
         if level.table:
             #await self._extract_table_data()
-            if not self.table_headers:
+            if not self.headers:
                 await self.get_final_headers(level.table)
                 #logging.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
                 table_data = await self._extract_table_data()
@@ -248,13 +248,13 @@ class ConsultaAmigable():
                     self.extracted_data.append(formatted_row)
                 
     
-    async def navigate_level_simple(self, row: str, button: str)-> None:
+    async def navigate_level_simple(self, row: str, button_xpath: str)-> None:
         await self.click_on_element(row)
-        await self.click_on_element(button)
+        await self.click_on_element(button_xpath)
         self.level_index += 1
     
     
-    async def iterate_over_levels(self, button: str)-> list:
+    async def iterate_over_levels(self, button_xpath: str)-> list:
         """
         Navega a través de cada fila en el nivel actual, guardando el contexto,
         extrayendo datos y manejando la navegación hacia adelante y atrás para
@@ -272,8 +272,7 @@ class ConsultaAmigable():
             self.context[level.name] = element_name  # Guardar el nombre en el contexto
             logging.info(f"➡️ Entrando en: {element_name}")
             
-            await self.navigate_level_simple(fila, button)
-            await self.assert_extraction()
+            await self.navigate_level_simple(fila, button_xpath)
             levels_left = len(self.route_config.levels) - (self.level_index + 1)
             if levels_left > 0:
                 for _ in range(levels_left):
@@ -287,16 +286,20 @@ class ConsultaAmigable():
                     
                     self.level_index -= 1
                     self.click_number += 1
+                self.level_index -= levels_left
             else:
                 try:
                     await self.page.go_back(timeout=100)
                 except TimeoutError:
                         pass
                 self.level_index -= 1
-                self.click_number += 1   
+                self.click_number += 1
 
+        # Al terminar la iteración, se avanza de nivel        
+        self.level_index += 1
 
-    async def extract_data_by_year(self):
+    # TODO: Save data every year
+    async def extract_data_by_year(self) -> list:
         """
         Extrae los datos de la página para un año específico basado en la ruta configurada.
 
@@ -323,17 +326,20 @@ class ConsultaAmigable():
                 datos_anio.append(fila_con_meta)
             self.level_index = 0
 
+        return datos_anio
 
-    def save_data(nombre_archivo, datos, encabezados):
+    # TODO: Path should be inputted by the user, else it will write inside lib
+    def save_data(self, nombre_archivo: str, datos, encabezados: list)-> None:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
         try:
             df = pd.DataFrame(datos, columns=encabezados)
-            df.to_excel(nombre_archivo, index=False)
-            print(f"Datos guardados correctamente en {nombre_archivo}")
+            del df[df.columns[1]]
+            df.to_excel(PATH_DATA_RAW / f"{nombre_archivo}.xlsx", index=False)
+            logging.info(f"Datos guardados correctamente en {nombre_archivo}")
         except Exception as e:
-            print(f"Error al guardar en Excel: {e}")
+            logging.info(f"Error al guardar en Excel: {e}")
 
 
     # TODO: Modularizar años
@@ -347,14 +353,11 @@ class ConsultaAmigable():
         # session = ConsultaAmigable(ruta_seleccionada, timeout=100, headless=False)
         await self.initialize_driver()
         todos_los_datos = []
-        self.table_headers = []
-        
 
         try:
             #print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
 
             # Obtener configuración de la ruta seleccionada
-            encabezados_base = self.route_config.file.get("ENCABEZADOS_BASE", [])
             # archivo_scraping = file_conf.get("ARCHIVO_SCRAPING", [])
 
             # Iterar sobre los años y extraer datos
@@ -369,9 +372,10 @@ class ConsultaAmigable():
             # Guardar los datos finales si se obtuvieron datos completos
             if todos_los_datos:
                 logging.info("💾 Guardando datos...")
-                encabezados_completos = encabezados_base + self.table_headers
+                encabezados_completos = ["Año", ""] + self.headers
+                logging.info(encabezados_completos)
                 self.save_data(
-                    os.path.join(PATH_DATA_RAW, self.route_config.file["FILE_NAME"]),
+                    self.route_config.file["FILE_NAME"],
                     todos_los_datos,
                     encabezados_completos,
                 )
