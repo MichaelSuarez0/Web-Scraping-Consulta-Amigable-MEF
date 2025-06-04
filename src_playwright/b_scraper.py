@@ -65,21 +65,25 @@ GLOBAL_SELECTORS = {
 # Funciones de Utilidad
 # =====================
 class ConsultaAmigable():
+    URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
+    URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
+
     def __init__(self, ruta: RouteConfig, years: list[int], timeout: int = 100, headless=False):
         self.headless = headless
         self.timeout = timeout
-        self.URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
-        self.URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
+        self.playwright = None
+        self.browser = None
+        self.page = None
+
         self.route_config = ruta
         self.years = years
+        self.year = 0
+
         self.extracted_data = []
         self.headers = []
         self.context = {}
         self.click_number = 0
         self.level_index = 0
-        self.playwright = None
-        self.browser = None
-        self.page = None
 
     async def initialize_driver(self):
         """
@@ -231,22 +235,22 @@ class ConsultaAmigable():
                 await self.iterate_over_levels(level.button_xpath)
 
 
-    async def assert_extraction(self):
+    async def assert_extraction(self)-> None:
         level = self.route_config.levels[self.level_index]
         iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
         await iframe.wait_for_selector("table.Data")
         if level.table:
-            #await self._extract_table_data()
             if not self.headers:
                 await self.get_final_headers(level.table)
-                #logging.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
-                table_data = await self._extract_table_data()
 
-                # Construir cada fila incluyendo los niveles donde hubo iteración
-                for row in table_data:
-                    formatted_row = [self.context[level] for level in self.context.keys()] + row
-                    self.extracted_data.append(formatted_row)
-                
+            #logging.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
+            table_data = await self._extract_table_data()
+
+            # Construir cada fila incluyendo los niveles donde hubo iteración
+            for row in table_data:
+                formatted_row = [self.year] + [self.context[level] for level in self.context.keys()] + row
+                self.extracted_data.append(formatted_row)
+            
     
     async def navigate_level_simple(self, row: str, button_xpath: str)-> None:
         await self.click_on_element(row)
@@ -299,7 +303,7 @@ class ConsultaAmigable():
         self.level_index += 1
 
     # TODO: Save data every year
-    async def extract_data_by_year(self) -> list:
+    async def extract_data_by_year(self) -> None:
         """
         Extrae los datos de la página para un año específico basado en la ruta configurada.
 
@@ -309,8 +313,8 @@ class ConsultaAmigable():
         :return: Datos extraídos.
         """
         for year in self.years:
+            self.year = year
             logging.info(f"🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.name}")
-            datos_anio = []
             await self.navigate_to_url(year)
             
             iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
@@ -321,20 +325,16 @@ class ConsultaAmigable():
                 await self.navigate_levels()
 
             # Agregar metadatos: Año...
-            for fila in self.extracted_data:
-                fila_con_meta = [year] + fila
-                datos_anio.append(fila_con_meta)
             self.level_index = 0
 
-        return datos_anio
 
     # TODO: Path should be inputted by the user, else it will write inside lib
-    def save_data(self, nombre_archivo: str, datos, encabezados: list)-> None:
+    def save_data(self, nombre_archivo: str)-> None:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
         try:
-            df = pd.DataFrame(datos, columns=encabezados)
+            df = pd.DataFrame(self.extracted_data, columns=self.headers)
             del df[df.columns[1]]
             df.to_excel(PATH_DATA_RAW / f"{nombre_archivo}.xlsx", index=False)
             logging.info(f"Datos guardados correctamente en {nombre_archivo}")
@@ -352,7 +352,6 @@ class ConsultaAmigable():
         # ruta_seleccionada = "MUNICIPALIDADES"
         # session = ConsultaAmigable(ruta_seleccionada, timeout=100, headless=False)
         await self.initialize_driver()
-        todos_los_datos = []
 
         try:
             #print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
@@ -361,8 +360,8 @@ class ConsultaAmigable():
             # archivo_scraping = file_conf.get("ARCHIVO_SCRAPING", [])
 
             # Iterar sobre los años y extraer datos
-            datos_anio = await self.extract_data_by_year()
-            todos_los_datos.extend(datos_anio)
+            await self.extract_data_by_year()
+            #todos_los_datos.extend(datos_anio)
 
         # except Exception as e:
         #     print(f"Se produjo un error inesperado: {e}")
@@ -370,14 +369,12 @@ class ConsultaAmigable():
 
         finally:
             # Guardar los datos finales si se obtuvieron datos completos
-            if todos_los_datos:
+            if self.extracted_data:
                 logging.info("💾 Guardando datos...")
-                encabezados_completos = ["Año", ""] + self.headers
-                logging.info(encabezados_completos)
+                self.headers = ["Año", ""] + self.headers
+                logging.info(self.headers)
                 self.save_data(
                     self.route_config.file["FILE_NAME"],
-                    todos_los_datos,
-                    encabezados_completos,
                 )
 
             await self.cerrar_navegador()

@@ -33,6 +33,7 @@ import a_config
 # Importación de data
 # =====================
 
+# TODO: Convertir a clase tmb
 
 def read_files(ruta_archivo, hoja=0):
     """
