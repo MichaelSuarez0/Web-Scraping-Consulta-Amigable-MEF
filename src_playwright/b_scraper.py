@@ -27,16 +27,39 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
-from pathlib import Path
 import pandas as pd
 from playwright.async_api import async_playwright, TimeoutError, Locator
-import logging
-from .a_config import RouteConfig, PATH_DATA_RAW
+from .a_config import RouteConfig
+from .c_cleaner import Cleaner
 
 # =====================
 # # Configuraciones básicas
 # =====================
-logging.getLogger('consulta_amigable')
+import logging
+from pathlib import Path
+
+logger = logging.getLogger('consulta_amigable')
+logger.setLevel(logging.INFO)
+
+PATH_BASE = Path(__file__).parent
+LOG_PATH = PATH_BASE.parent / "logs" / "consulta_amigable.log"
+
+# Formateadores
+file_formatter = logging.Formatter(
+    '[%(asctime)s] [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+file_handler = logging.FileHandler(LOG_PATH, mode='a', encoding='utf-8')
+file_handler.setFormatter(file_formatter)
+
+console_formatter = logging.Formatter('[%(levelname)s] %(message)s')
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(console_formatter)
+
+# Evitar duplicados
+if not logger.handlers:
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
 
 # Selectores generales: año y frame principal
 GLOBAL_SELECTORS = {
@@ -52,16 +75,19 @@ class ConsultaAmigable():
     URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
     URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
 
-    def __init__(self, ruta: RouteConfig, years: list[int] | int, timeout: int = 100, headless=False):
+    def __init__(self, ruta: RouteConfig, years: list[int] | int, output_name: str, timeout: int = 100, headless=False):
         self.headless = headless
         self.timeout = timeout
         self.playwright = None
         self.browser = None
         self.page = None
+        self.cleaner = None
+        self.logger = logger
 
         self.route_config = ruta
         self.years = years if isinstance(years, list) else [years]
         self.year = 0
+        self.output_name = output_name
 
         self.extracted_data = []
         self.headers = []
@@ -142,7 +168,7 @@ class ConsultaAmigable():
             # Agregar datos solo si la fila tiene contenido
             if datos:
                 datos_tabla.append(datos)
-        logging.info(f"Se extrajeron datos de {int(len(filas))} filas.")
+        self.logger.info(f"Se extrajeron datos de {int(len(filas))} filas.")
 
         return datos_tabla
 
@@ -182,7 +208,7 @@ class ConsultaAmigable():
                         encabezado = await td.inner_text()
                         self.headers.append(encabezado.strip())
 
-                logging.info(f"Encabezados extraídos: {self.headers}")
+                self.logger.info(f"Encabezados extraídos: {self.headers}")
 
             except Exception as e:
                 print(f"Error al obtener encabezados: {e}")
@@ -220,7 +246,7 @@ class ConsultaAmigable():
             if not self.headers:
                 await self._get_final_headers()
 
-            #logging.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
+            #self.logger.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
             table_data = await self._extract_table_data()
 
             # Construir cada fila incluyendo los niveles donde hubo iteración
@@ -265,13 +291,13 @@ class ConsultaAmigable():
         iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
         await iframe.wait_for_selector("table.Data")
         filas = await iframe.locator("table.Data > tbody > tr").all()
-        logging.info(f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}")
+        self.logger.info(f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}")
 
         for i in range(len(filas)):
             fila = filas[i]
             element_name = await fila.locator("td").nth(1).inner_text()
             self.context[level.name] = element_name  # Guardar el nombre en el contexto
-            logging.info(f"➡️ Entrando en: {element_name}")
+            self.logger.info(f"➡️ Entrando en: {element_name}")
             
             await self._navigate_level_simple(fila, button_text)
             levels_left = len(self.route_config.levels) - (self.level_index + 1)
@@ -307,7 +333,7 @@ class ConsultaAmigable():
         """
         for year in self.years:
             self.year = year
-            logging.info(f"🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.name}")
+            self.logger.info(f"🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.name}")
             await self._navigate_to_url(year)
             
             iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
@@ -322,17 +348,22 @@ class ConsultaAmigable():
 
 
     # TODO: Path should be inputted by the user, else it will write inside lib
-    def _save_data(self, nombre_archivo: str)-> None:
+    def clean(self):
+        self.cleaner = Cleaner()
+
+    def _save_data(self)-> None:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
-        try:
-            df = pd.DataFrame(self.extracted_data, columns=self.headers)
-            del df[df.columns[1]]
-            df.to_excel(PATH_DATA_RAW / f"{nombre_archivo}.xlsx", index=False)
-            logging.info(f"Datos guardados correctamente en {nombre_archivo}")
-        except Exception as e:
-            logging.info(f"Error al guardar en Excel: {e}")
+    
+        df = pd.DataFrame(self.extracted_data, columns=self.headers)
+        #del df[df.columns[1]]
+        self.cleaner = Cleaner(df, output_name=self.output_name)
+        self.cleaner.clean()
+        #     df.to_excel(PATH_DATA_RAW / f"{nombre_archivo}.xlsx", index=False)
+        #self.logger.info(f"Datos guardados correctamente como {self.output_name}")
+        # except Exception as e:
+        #     self.logger.info(f"Error al guardar en Excel: {e}")
 
 
     def create_route(self)-> None:
@@ -343,11 +374,11 @@ class ConsultaAmigable():
         """
         Muestra las rutas disponibles y permite al usuario seleccionar una.
         """
-        logging.info("\n--- Rutas disponibles ---")
+        self.logger.info("\n--- Rutas disponibles ---")
         rutas_disponibles = list(self.years)
 
         for i, ruta in enumerate(rutas_disponibles, start=1):
-            logging.info(f"{i}: {ruta}")
+            self.logger.info(f"{i}: {ruta}")
 
         while True:
             try:
@@ -355,9 +386,9 @@ class ConsultaAmigable():
                 if 1 <= opcion <= len(rutas_disponibles):
                     return rutas_disponibles[opcion - 1]
                 else:
-                    logging.error("⚠️ Opción inválida, ingresa un número de la lista.")
+                    self.logger.error("⚠️ Opción inválida, ingresa un número de la lista.")
             except ValueError:
-                logging.error("⚠️ Entrada inválida, ingresa un número.")
+                self.logger.error("⚠️ Entrada inválida, ingresa un número.")
 
 
     # TODO: Modularizar años
@@ -377,19 +408,17 @@ class ConsultaAmigable():
 
         # except Exception as e:
         #     print(f"Se produjo un error inesperado: {e}")
-        #     logging.info("💾 Guardando datos parciales antes de cerrar...")
+        #     self.logger.info("💾 Guardando datos parciales antes de cerrar...")
 
         finally:
             # Guardar los datos finales si se obtuvieron datos completos
             if self.extracted_data:
-                logging.info("💾 Guardando datos...")
+                self.logger.info("💾 Guardando datos...")
                 self.headers = ["Año", ""] + self.headers
-                logging.info(self.headers)
-                self._save_data(
-                    self.route_config.file["FILE_NAME"],
-                )
+                self.logger.info(self.headers)
+                self._save_data()
 
             await self._cerrar_navegador()
-            logging.info("✅ Proceso finalizado, driver cerrado.")
-            logging.info(f"Se dieron {self.click_number} clicks")
+            self.logger.info("✅ Proceso finalizado, driver cerrado.")
+            self.logger.info(f"Se dieron {self.click_number} clicks")
 
