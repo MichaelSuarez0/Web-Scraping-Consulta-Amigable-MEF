@@ -23,12 +23,16 @@ Usage:
 # =====================
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
-import os
+from pathlib import Path
+
 # =====================
 # 1: Parámetros de Scraping
 # =====================
 
-# Selectores generales: año y frame principal
+# Variables globales
+PATH_BASE = Path(__file__).parent
+PATH_DATA_RAW = PATH_BASE.parent / "data" / "01_raw"
+PATH_DATA_PRO = PATH_BASE.parent / "data" / "02_processed"
 GLOBAL_SELECTORS = {"year_dropdown": "ctl00_CPH1_DrpYear", "main_frame": "frame0"}
 
 
@@ -38,41 +42,35 @@ class LevelConfig:
     button: Optional[str] = None
     row: Optional[str] = None
     table_rows: Optional[bool] = False
-    table: Optional[str] = None
+    table: Optional[bool] = False
+
+    # @property
+    # def button_xpath(self):
+    #     if self.button is not None:
+    #         return f'//input[contains(translate(@value, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "{self.button.lower()}")]'
+    #     else:
+    #         return None
+    
+    # @property
+    # def row_xpath(self):
+    #     if self.row is not None:
+    #         return f'//td[contains(translate(@value, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "{self.row.lower()}")]'
+    #     else:
+    #         return None
 
     @property
-    def button_xpath(self):
-        if self.button is not None:
-            return f'//input[contains(translate(@value, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "{self.button.lower()}")]'
+    def table_xpath(self):
+        if self.table is not False:
+            return f'table.MapTable'
         else:
             return None
-    
-    # @property
-    # def row(self):
-    #     if self.row is not None:
-    #         return f'td:has-text("{self.row}")'
-    #     else:
-    #         return None
-    
-    # @property
-    # def button(self):
-    #     if self.button is not None:
-    #         return f'input[value="{self.button}"]'
-    #     else:
-    #         return None
-    
-    # @property
-    # def button(self):
-    #     if self.button is not None:
-    #         return f'input[value="{self.button}"]'
-    #     else:
-    #         return None
 
+
+# TODO: Obtener nombres de niveles dinámicamente (a partir de la primera columna de la tabla)
 @dataclass
 class RouteConfig:
     name: str
     file: dict[Any]
-    cleaning: dict[Any]
     levels: List[LevelConfig]
 
 # Creación de configuraciones
@@ -81,13 +79,6 @@ ROUTE_MUNICIPALIDADES = RouteConfig(
     file = {
         "ENCABEZADOS_BASE": ["Año", "Departamento", "Provincia"],  # Encabezados base
         "FILE_NAME": "EJECUCION_GASTO_GL_X_MUNICIPALIDADES.xlsx",  # Nombre del archivo de salida
-    },
-    cleaning = {
-        "ENCABEZADOS_PROCESADOS": [
-            ["Departamento", ["UBI_DPTO", "Departamento"], ":"],
-            ["Provincia", ["UBI_PROV", "Provincia"], ":"],
-            ["Municipalidad", ["UBI_DIST", "COD_SIAF", "Municipalidad"], "-|:"],
-        ],
     },
     levels=[
         LevelConfig(
@@ -129,27 +120,20 @@ ROUTE_SALUD = RouteConfig(
         "ENCABEZADOS_BASE": ["Año", "Departamento", "Provincia"],  # Encabezados base
         "FILE_NAME": "EJECUCION_GASTO_GL_X_MUNICIPALIDADES.xlsx",  # Nombre del archivo de salida
     },
-    cleaning = {
-        "ENCABEZADOS_PROCESADOS": [
-            ["Departamento", ["UBI_DPTO", "Departamento"], ":"],
-            ["Provincia", ["UBI_PROV", "Provincia"], ":"],
-            ["Municipalidad", ["UBI_DIST", "COD_SIAF", "Municipalidad"], "-|:"],
-        ],
-    },
     levels=[
         LevelConfig(
             name="Tipos de Gobierno",
-            row='td:has-text("TOTAL")',
+            row='TOTAL',
             button='de Gobierno'
         ),
         LevelConfig(
             name="Subtipos de Gobierno",
-            row='td:has-text("GOBIERNO NACIONAL")',
+            row="GOBIERNO NACIONAL",
             button='Sector'
         ),
         LevelConfig(
             name="Sector",
-            row='td:has-text("SALUD")',
+            row="SALUD",
             button='Departamento'
         ),
         LevelConfig(
