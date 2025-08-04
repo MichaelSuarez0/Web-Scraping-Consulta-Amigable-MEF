@@ -75,7 +75,7 @@ class ConsultaAmigable():
     URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
     URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
 
-    def __init__(self, ruta: RouteConfig, years: list[int] | int, output_name: str, timeout: int = 100, headless=False):
+    def __init__(self, ruta: RouteConfig, years: list[int] | int, output_path: str, timeout: int = 100, headless=False):
         self.headless = headless
         self.timeout = timeout
         self.playwright = None
@@ -87,7 +87,7 @@ class ConsultaAmigable():
         self.route_config = ruta
         self.years = years if isinstance(years, list) else [years]
         self.year = 0
-        self.output_name = output_name
+        self.output_path = output_path
 
         self.extracted_data = []
         self.headers = []
@@ -213,7 +213,27 @@ class ConsultaAmigable():
             except Exception as e:
                 print(f"Error al obtener encabezados: {e}")
             
+
+    async def _assert_extraction(self)-> None:
+        """
+        Verifica y realiza la extracción de datos de la tabla según el nivel actual.
+        """
+        level = self.route_config.levels[self.level_index]
+        iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
+        await iframe.wait_for_selector("table.Data")
+        if level.extract_table:
+            if not self.headers:
+                await self._get_final_headers()
+
+            #self.logger.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
+            table_data = await self._extract_table_data()
+
+            # Construir cada fila incluyendo los niveles donde hubo iteración
+            for row in table_data:
+                formatted_row = [self.year] + [self.context[level] for level in self.context.keys()] + row
+                self.extracted_data.append(formatted_row)
             
+
     async def _navigate_levels(self, custom_row: str = "")-> None:
         """
         Navega a través de los niveles definidos en la configuración.
@@ -227,33 +247,13 @@ class ConsultaAmigable():
 
         await self._assert_extraction() 
         if level.button:
-            if level.row:
-                await self._navigate_level_simple(level.row, level.button)
+            if level.fila:
+                await self._navigate_level_simple(level.fila, level.button)
             elif custom_row:
                 await self._navigate_level_simple(custom_row, level.button)
-            elif level.table_rows:
+            elif level.iterate:
                 await self._iterate_over_levels(level.button)
 
-
-    async def _assert_extraction(self)-> None:
-        """
-        Verifica y realiza la extracción de datos de la tabla según el nivel actual.
-        """
-        level = self.route_config.levels[self.level_index]
-        iframe = self.page.frame(GLOBAL_SELECTORS["main_frame"])
-        await iframe.wait_for_selector("table.Data")
-        if level.table:
-            if not self.headers:
-                await self._get_final_headers()
-
-            #self.logger.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
-            table_data = await self._extract_table_data()
-
-            # Construir cada fila incluyendo los niveles donde hubo iteración
-            for row in table_data:
-                formatted_row = [self.year] + [self.context[level] for level in self.context.keys()] + row
-                self.extracted_data.append(formatted_row)
-            
     
     async def _navigate_level_simple(self, row_text: str, button_text: str)-> None:
         """
@@ -357,14 +357,8 @@ class ConsultaAmigable():
         """
     
         df = pd.DataFrame(self.extracted_data, columns=self.headers)
-        #del df[df.columns[1]]
-        self.cleaner = Cleaner(df, output_name=self.output_name)
+        self.cleaner = Cleaner(df, output_name=self.output_path)
         self.cleaner.clean()
-        #     df.to_excel(PATH_DATA_RAW / f"{nombre_archivo}.xlsx", index=False)
-        #self.logger.info(f"Datos guardados correctamente como {self.output_name}")
-        # except Exception as e:
-        #     self.logger.info(f"Error al guardar en Excel: {e}")
-
 
     def create_route(self)-> None:
         pass
@@ -404,7 +398,6 @@ class ConsultaAmigable():
 
             # Iterar sobre los años y extraer datos
             await self._extract_data_by_year()
-            #todos_los_datos.extend(datos_anio)
 
         # except Exception as e:
         #     print(f"Se produjo un error inesperado: {e}")
