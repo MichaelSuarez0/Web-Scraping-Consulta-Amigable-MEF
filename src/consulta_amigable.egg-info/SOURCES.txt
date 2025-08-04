@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+src/consulta_amigable/__init__.py
+src/consulta_amigable/a_config.py
+src/consulta_amigable/b_scraper.py
+src/consulta_amigable/c_cleaner.py
+src/consulta_amigable.egg-info/PKG-INFO
+src/consulta_amigable.egg-info/SOURCES.txt
+src/consulta_amigable.egg-info/dependency_links.txt
+src/consulta_amigable.egg-info/requires.txt
+src/consulta_amigable.egg-info/top_level.txt
