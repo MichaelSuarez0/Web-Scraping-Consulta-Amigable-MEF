@@ -28,7 +28,7 @@ Usage:
 from pathlib import Path
 import pandas as pd
 import logging
-from ubigeos_peru import Ubigeo as ubg
+import ubigeos_peru as ubg
 
 logger = logging.getLogger('consulta_amigable')
 
@@ -120,7 +120,7 @@ class Cleaner:
         """
     
         self.df.to_excel(self.output_path, index=False)
-        logger.info(f"Datos guardados correctamente como {self.output_name}")
+        logger.info(f"Datos guardados correctamente como {self.output_path}")
         
 
     def clean(self):

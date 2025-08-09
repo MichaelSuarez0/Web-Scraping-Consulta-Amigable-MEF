@@ -1,5 +1,3 @@
-# src/consulta_amigable/logger.py
-
 import logging
 from pathlib import Path
 from typing import Optional

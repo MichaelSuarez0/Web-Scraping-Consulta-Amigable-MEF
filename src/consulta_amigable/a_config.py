@@ -21,7 +21,8 @@ Usage:
 # =====================
 # 0: Importación de librerías
 # =====================
-from pydantic import BaseModel
+from pathlib import Path
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 # =====================
@@ -59,6 +60,6 @@ class LevelConfig(BaseModel):
 
 # TODO: Obtener nombres de niveles dinámicamente (a partir de la primera columna de la tabla)
 class RouteConfig(BaseModel):
-    name: str
+    route_name: str
     output_path: str
-    levels: List[LevelConfig]
+    levels: Optional[list[LevelConfig]] = Field(default_factory=list)
