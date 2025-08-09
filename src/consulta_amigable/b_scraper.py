@@ -27,23 +27,43 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
-import pandas as pd
+from __future__ import annotations
+from pathlib import Path
+import questionary
 from playwright.async_api import async_playwright, TimeoutError, Locator
-from .a_config import RouteConfig
+from rich.console import Console
+from .a_config import LevelConfig, RouteConfig
 from .c_cleaner import Cleaner
 from .d_logger import setup_logger
+from .export_yaml import save_route_with_defaults, load_route_from_yaml
+from .e_cli import ConsultaCLI
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = setup_logger()
+
+GLOBAL_STYLE = questionary.Style(
+    [
+        ("qmark", f"fg:ansiblue bold"),  # question mark in gray
+        ("question", "fg:#888888 bold"),  # question text in gray
+        ("answer", "fg:#ffffff bold"),  # submitted answer in white
+        ("pointer", "fg:#888888 bold"),  # pointer in gray
+        ("highlighted", "fg:#ffffff bg:#444444"),  # highlighted choice
+        ("selected", "fg:#ffffff bg:#666666"),  # style for selected item
+    ]
+)
 
 # =====================
 # Funciones de Utilidad
 # =====================
-class ConsultaAmigable():
+class ConsultaAmigable:
     URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
     URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
     main_frame = "frame0"
 
-    def __init__(self, ruta: RouteConfig, years: list[int] | int, output_path: str, timeout: int = 100, headless=False):
+    def __init__(self, timeout: int = 100, headless=False):
         self.headless = headless
         self.timeout = timeout
         self.playwright = None
@@ -52,10 +72,9 @@ class ConsultaAmigable():
         self.cleaner = None
         self.logger = logger
 
-        self.route_config = ruta
-        self.years = years if isinstance(years, list) else [years]
+        self.route_config: RouteConfig = None
+        self.years = None
         self.year = 0
-        self.output_path = output_path
 
         self.extracted_data = []
         self.headers = []
@@ -63,17 +82,23 @@ class ConsultaAmigable():
         self.click_number = 0
         self.level_index = 0
 
+        self.console = Console()
+
+
     async def _initialize_driver(self):
         """
         Inicializa el driver de Playwright.
         """
         self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(headless=self.headless, slow_mo=self.timeout)
-        context = await self.browser.new_context(viewport={"width": 1280, "height": 720})
+        self.browser = await self.playwright.chromium.launch(
+            headless=self.headless, slow_mo=self.timeout
+        )
+        context = await self.browser.new_context(
+            viewport={"width": 1280, "height": 720}
+        )
         self.page = await context.new_page()
         self.page.set_default_timeout(15_000)
         self.page.set_default_navigation_timeout(20_000)
-        
 
     async def _cerrar_navegador(self):
         """
@@ -84,8 +109,7 @@ class ConsultaAmigable():
         if self.playwright:
             await self.playwright.stop()
 
-
-    async def _navigate_to_url(self, year: str | int,  mensual: bool = False):
+    async def _navigate_to_url(self, year: str | int, mensual: bool = False):
         """
         Navega a la URL especificada utilizando el driver proporcionado.
         """
@@ -93,7 +117,6 @@ class ConsultaAmigable():
             await self.page.goto(self.URL_ANUAL.format(str(year)))
         else:
             await self.page.goto(self.URL_MENSUAL)
-
 
     async def _click_on_element(self, element_text: str | Locator, row: True):
         """
@@ -111,11 +134,10 @@ class ConsultaAmigable():
         #     await element.click()
         self.click_number += 1
 
-
     async def _extract_table_data(self):
         """
         Extrae los datos de una tabla con clase 'Data' y retorna una lista de listas.
-        
+
         Returns
         -------
         list
@@ -140,12 +162,11 @@ class ConsultaAmigable():
 
         return datos_tabla
 
-
-    async def _get_final_headers(self)-> list:
+    async def _get_final_headers(self) -> list:
         """
-        Extrae encabezados manteniendo el orden de la tabla, omitiendo la primera columna 
+        Extrae encabezados manteniendo el orden de la tabla, omitiendo la primera columna
         vacía (botón) y obteniendo los niveles inferiores cuando hay agrupación.
-        
+
         Returns
         -------
         list
@@ -158,7 +179,9 @@ class ConsultaAmigable():
                 segundo_encabezado = iframe.locator("tr[id='ctl00_CPH1_Mt0_Row1']")
                 tds = await primer_encabezado.locator("td").all()
 
-                idx_inferior = 0  # Índice para recorrer fila_inferior cuando haya agrupación
+                idx_inferior = (
+                    0  # Índice para recorrer fila_inferior cuando haya agrupación
+                )
 
                 for i, td in enumerate(tds):
                     # Omitir la primera celda si está vacía (botón)
@@ -167,9 +190,15 @@ class ConsultaAmigable():
 
                     colspan = await td.get_attribute("colspan")
 
-                    if colspan:  # Si hay agrupación, tomar encabezados del nivel inferior
+                    if (
+                        colspan
+                    ):  # Si hay agrupación, tomar encabezados del nivel inferior
                         for _ in range(int(colspan)):
-                            encabezado = await segundo_encabezado.locator("td").nth(idx_inferior).inner_text()
+                            encabezado = (
+                                await segundo_encabezado.locator("td")
+                                .nth(idx_inferior)
+                                .inner_text()
+                            )
                             self.headers.append(encabezado.strip())
                             idx_inferior += 1
                     else:  # Si no hay agrupación, tomar el texto directamente
@@ -180,9 +209,8 @@ class ConsultaAmigable():
 
             except Exception as e:
                 print(f"Error al obtener encabezados: {e}")
-            
 
-    async def _assert_extraction(self)-> None:
+    async def _assert_extraction(self) -> None:
         """
         Verifica y realiza la extracción de datos de la tabla según el nivel actual.
         """
@@ -193,16 +221,19 @@ class ConsultaAmigable():
             if not self.headers:
                 await self._get_final_headers()
 
-            #self.logger.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
+            # self.logger.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
             table_data = await self._extract_table_data()
 
             # Construir cada fila incluyendo los niveles donde hubo iteración
             for row in table_data:
-                formatted_row = [self.year] + [self.context[level] for level in self.context.keys()] + row
+                formatted_row = (
+                    [self.year]
+                    + [self.context[level] for level in self.context.keys()]
+                    + row
+                )
                 self.extracted_data.append(formatted_row)
-            
 
-    async def _navigate_levels(self, custom_row: str = "")-> None:
+    async def _navigate_levels(self, custom_row: str = "") -> None:
         """
         Navega a través de los niveles definidos en la configuración.
 
@@ -213,7 +244,7 @@ class ConsultaAmigable():
         """
         level = self.route_config.levels[self.level_index]
 
-        await self._assert_extraction() 
+        await self._assert_extraction()
         if level.button:
             if level.fila:
                 await self._navigate_level_simple(level.fila, level.button)
@@ -222,8 +253,7 @@ class ConsultaAmigable():
             elif level.iterate:
                 await self._iterate_over_levels(level.button)
 
-    
-    async def _navigate_level_simple(self, row_text: str, button_text: str)-> None:
+    async def _navigate_level_simple(self, row_text: str, button_text: str) -> None:
         """
         Navega a un nivel específico haciendo clic en una fila y luego en un botón.
 
@@ -237,9 +267,8 @@ class ConsultaAmigable():
         await self._click_on_element(row_text, row=True)
         await self._click_on_element(button_text, row=False)
         self.level_index += 1
-    
-    
-    async def _iterate_over_levels(self, button_text: str)-> list:
+
+    async def _iterate_over_levels(self, button_text: str) -> list:
         """
         Navega a través de cada fila en el nivel actual, guardando el contexto,
         extrayendo datos y manejando la navegación hacia adelante y atrás para
@@ -259,14 +288,16 @@ class ConsultaAmigable():
         iframe = self.page.frame(self.main_frame)
         await iframe.wait_for_selector("table.Data")
         filas = await iframe.locator("table.Data > tbody > tr").all()
-        self.logger.info(f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}")
+        self.logger.info(
+            f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}"
+        )
 
         for i in range(len(filas)):
             fila = filas[i]
             element_name = await fila.locator("td").nth(1).inner_text()
             self.context[level.name] = element_name  # Guardar el nombre en el contexto
             self.logger.info(f"➡️ Entrando en: {element_name}")
-            
+
             await self._navigate_level_simple(fila, button_text)
             levels_left = len(self.route_config.levels) - (self.level_index + 1)
             if levels_left > 0:
@@ -278,7 +309,7 @@ class ConsultaAmigable():
                         await self.page.go_back(timeout=100)
                     except TimeoutError:
                         pass
-                    
+
                     self.level_index -= 1
                     self.click_number += 1
                 self.level_index -= levels_left
@@ -286,24 +317,26 @@ class ConsultaAmigable():
                 try:
                     await self.page.go_back(timeout=100)
                 except TimeoutError:
-                        pass
+                    pass
                 self.level_index -= 1
                 self.click_number += 1
 
-        # Al terminar la iteración, se avanza de nivel        
+        # Al terminar la iteración, se avanza de nivel
         self.level_index += 1
 
     # TODO: Save data every year
     async def _extract_data_by_year(self) -> None:
         """
-        Extrae los datos de la página para cada año especificado basado en la 
+        Extrae los datos de la página para cada año especificado basado en la
         configuración de ruta establecida.
         """
         for year in self.years:
             self.year = year
-            self.logger.info(f"🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.name}")
+            self.logger.info(
+                f"🗓️ Iniciando extracción para el año {year}, ruta: {self.route_config.route_name}"
+            )
             await self._navigate_to_url(year)
-            
+
             iframe = self.page.frame(self.main_frame)
             await iframe.wait_for_selector("table.Data")
 
@@ -314,56 +347,67 @@ class ConsultaAmigable():
             # Agregar metadatos: Año...
             self.level_index = 0
 
-
     # TODO: Path should be inputted by the user, else it will write inside lib
     def clean(self):
         self.cleaner = Cleaner()
 
-    def _save_data(self)-> None:
+    def _save_data(self, output_dir: Path) -> None:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
-    
+
         df = pd.DataFrame(self.extracted_data, columns=self.headers)
-        self.cleaner = Cleaner(df, output_path=self.output_path)
+        self.cleaner = Cleaner(
+            df, output_path=output_dir / f"{self.route_config.route_name}.xlsx"
+        )
         self.cleaner.clean()
 
-    def create_route(self)-> None:
+    async def create_route(self, route_name: str, output_dir: str) -> None:
+        cli = ConsultaCLI()
+        output_dir = Path(output_dir)
+        self.years = [2024]
+        await self._initialize_driver()
+        await self._navigate_to_url(self.years[0])
+
+        iframe = self.page.frame(self.main_frame)
+        await iframe.wait_for_selector("table.Data")
+
+        route_config = RouteConfig(
+            route_name=route_name, output_path=str(output_dir)
+        )
+        self.level_index = 1
         while True:
-            pass
+            level_config = await cli.create_level_config(name=f"Nivel {self.level_index}")
+            route_config.levels.append(level_config)
 
-
-    def select_route(self)-> str:
-        """
-        Muestra las rutas disponibles y permite al usuario seleccionar una.
-        """
-        self.logger.info("\n--- Rutas disponibles ---")
-        rutas_disponibles = list(self.years)
-
-        for i, ruta in enumerate(rutas_disponibles, start=1):
-            self.logger.info(f"{i}: {ruta}")
-
-        while True:
-            try:
-                opcion = int(input("\nElige una ruta (número): "))
-                if 1 <= opcion <= len(rutas_disponibles):
-                    return rutas_disponibles[opcion - 1]
-                else:
-                    self.logger.error("⚠️ Opción inválida, ingresa un número de la lista.")
-            except ValueError:
-                self.logger.error("⚠️ Entrada inválida, ingresa un número.")
-
+            if not level_config.button and not level_config.fila:
+                await self._cerrar_navegador()
+                save_route_with_defaults(
+                    route_config, path=output_dir / f"{route_name}.yaml"
+                )
+                logger.info(f"Se guardó la ruta en {output_dir}")
+                break
+            else:
+                self._navigate_level_simple(level_config.fila, level_config.button)
 
     # TODO: Modularizar años
-    async def run(self):
+    async def run(
+        self, route: RouteConfig, years: list[int] | int, output_dir: str | Path
+    ):
         """
         Función principal para iniciar el proceso de scraping con selección de ruta.
         Guarda los datos recolectados incluso si ocurre un error.
         """
+        if isinstance(route, (str, Path)):
+            path = Path(route)
+            route = load_route_from_yaml(path)
+
+        self.route_config = route
+        self.years = years if isinstance(years, list) else [years]
         await self._initialize_driver()
 
         try:
-            #print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
+            # print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
 
             # Iterar sobre los años y extraer datos
             await self._extract_data_by_year()
@@ -378,9 +422,28 @@ class ConsultaAmigable():
                 self.logger.info("💾 Guardando datos...")
                 self.headers = ["Año", ""] + self.headers
                 self.logger.info(self.headers)
-                self._save_data()
+                self._save_data(output_dir=output_dir)
 
             await self._cerrar_navegador()
             self.logger.info("✅ Proceso finalizado, driver cerrado.")
             self.logger.info(f"Se dieron {self.click_number} clicks")
 
+    # def select_route(self)-> str:
+    #     """
+    #     Muestra las rutas disponibles y permite al usuario seleccionar una.
+    #     """
+    #     self.logger.info("\n--- Rutas disponibles ---")
+    #     rutas_disponibles = list(self.years)
+
+    #     for i, ruta in enumerate(rutas_disponibles, start=1):
+    #         self.logger.info(f"{i}: {ruta}")
+
+    #     while True:
+    #         try:
+    #             opcion = int(input("\nElige una ruta (número): "))
+    #             if 1 <= opcion <= len(rutas_disponibles):
+    #                 return rutas_disponibles[opcion - 1]
+    #             else:
+    #                 self.logger.error("⚠️ Opción inválida, ingresa un número de la lista.")
+    #         except ValueError:
+    #             self.logger.error("⚠️ Entrada inválida, ingresa un número.")
