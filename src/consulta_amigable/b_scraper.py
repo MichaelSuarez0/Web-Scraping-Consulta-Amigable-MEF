@@ -27,8 +27,8 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
-from __future__ import annotations
 from pathlib import Path
+import warnings
 import questionary
 from playwright.async_api import async_playwright, TimeoutError, Locator
 from rich.console import Console
@@ -37,10 +37,7 @@ from .c_cleaner import Cleaner
 from .d_logger import setup_logger
 from .export_yaml import save_route_with_defaults, load_route_from_yaml
 from .e_cli import ConsultaCLI
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas as pd
+from .locators import Locator
 
 logger = setup_logger()
 
@@ -55,15 +52,15 @@ GLOBAL_STYLE = questionary.Style(
     ]
 )
 
+
 # =====================
 # Funciones de Utilidad
 # =====================
 class ConsultaAmigable:
     URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
     URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
-    main_frame = "frame0"
 
-    def __init__(self, timeout: int = 100, headless=False):
+    def __init__(self, timeout: int = 100, headless: bool = False):
         self.headless = headless
         self.timeout = timeout
         self.playwright = None
@@ -83,7 +80,8 @@ class ConsultaAmigable:
         self.level_index = 0
 
         self.console = Console()
-
+        if timeout < 50:
+            warnings.warn("Un timeout menor a 50 puede llevar a inconsistencias con la interacción de la página")
 
     async def _initialize_driver(self):
         """
@@ -118,15 +116,17 @@ class ConsultaAmigable:
         else:
             await self.page.goto(self.URL_MENSUAL)
 
-    async def _click_on_element(self, element_text: str | Locator, row: True):
+    async def _click_on_element(self, element_text: str | Locator, row: bool = True):
         """
         Hace clic en un elemento de la página utilizando su ID.
         """
-        iframe = self.page.frame(self.main_frame)
+        iframe = self.page.frame(Locator.main_frame)
         if row:
-            await iframe.locator("td").filter(has_text=element_text).click()
+            await iframe.locator(Locator.table_data).locator(Locator.text_rows).filter(
+                has_text=element_text
+            ).click()
         else:
-            button = iframe.locator("input").filter(has_text=element_text)
+            button = iframe.locator(Locator.buttons).filter(has_text=element_text)
             await button.first.click()
         # if isinstance(element, str):
         #     await iframe.locator(element).click()
@@ -147,8 +147,8 @@ class ConsultaAmigable:
         datos_tabla = []
 
         # Seleccionar todas las filas de la tabla con clase 'Data'
-        iframe = self.page.frame(self.main_frame)
-        filas = await iframe.locator("table.Data").locator("tr").all()
+        iframe = self.page.frame(Locator.main_frame)
+        filas = await iframe.locator(Locator.table_data).locator("tr").all()
 
         # Extraer los datos de cada fila
         for i, fila in enumerate(filas):
@@ -174,7 +174,7 @@ class ConsultaAmigable:
         """
         if not self.headers:
             try:
-                iframe = self.page.frame(self.main_frame)
+                iframe = self.page.frame(Locator.main_frame)
                 primer_encabezado = iframe.locator("tr[id='ctl00_CPH1_Mt0_Row0']")
                 segundo_encabezado = iframe.locator("tr[id='ctl00_CPH1_Mt0_Row1']")
                 tds = await primer_encabezado.locator("td").all()
@@ -215,8 +215,8 @@ class ConsultaAmigable:
         Verifica y realiza la extracción de datos de la tabla según el nivel actual.
         """
         level = self.route_config.levels[self.level_index]
-        iframe = self.page.frame(self.main_frame)
-        await iframe.wait_for_selector("table.Data")
+        iframe = self.page.frame(Locator.main_frame)
+        await iframe.wait_for_selector(Locator.table_data)
         if level.extract_table:
             if not self.headers:
                 await self._get_final_headers()
@@ -233,7 +233,7 @@ class ConsultaAmigable:
                 )
                 self.extracted_data.append(formatted_row)
 
-    async def _navigate_levels(self, custom_row: str = "") -> None:
+    async def _navigate_levels(self) -> None:
         """
         Navega a través de los niveles definidos en la configuración.
 
@@ -248,8 +248,6 @@ class ConsultaAmigable:
         if level.button:
             if level.fila:
                 await self._navigate_level_simple(level.fila, level.button)
-            elif custom_row:
-                await self._navigate_level_simple(custom_row, level.button)
             elif level.iterate:
                 await self._iterate_over_levels(level.button)
 
@@ -285,9 +283,11 @@ class ConsultaAmigable:
             Lista con los datos extraídos durante la iteración.
         """
         level = self.route_config.levels[self.level_index]
-        iframe = self.page.frame(self.main_frame)
-        await iframe.wait_for_selector("table.Data")
-        filas = await iframe.locator("table.Data > tbody > tr").all()
+        iframe = self.page.frame(Locator.main_frame)
+        await iframe.wait_for_selector(Locator.table_data)
+        filas = (
+            await iframe.locator(Locator.table_data).locator(Locator.text_rows).all()
+        )
         self.logger.info(
             f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}"
         )
@@ -304,7 +304,7 @@ class ConsultaAmigable:
                 for _ in range(levels_left):
                     await self._navigate_levels()
                 for _ in range(levels_left):  # TODO: Evaluar descomentar
-                    await iframe.wait_for_selector("table.Data")
+                    await iframe.wait_for_selector(Locator.table_data)
                     try:
                         await self.page.go_back(timeout=100)
                     except TimeoutError:
@@ -337,8 +337,8 @@ class ConsultaAmigable:
             )
             await self._navigate_to_url(year)
 
-            iframe = self.page.frame(self.main_frame)
-            await iframe.wait_for_selector("table.Data")
+            iframe = self.page.frame(Locator.main_frame)
+            await iframe.wait_for_selector(Locator.table_data)
 
             # Navegar a través de los niveles desde el primer nivel
             for level in self.route_config.levels:
@@ -347,48 +347,102 @@ class ConsultaAmigable:
             # Agregar metadatos: Año...
             self.level_index = 0
 
-    # TODO: Path should be inputted by the user, else it will write inside lib
-    def clean(self):
-        self.cleaner = Cleaner()
-
     def _save_data(self, output_dir: Path) -> None:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
-
+        import pandas as pd
         df = pd.DataFrame(self.extracted_data, columns=self.headers)
         self.cleaner = Cleaner(
             df, output_path=output_dir / f"{self.route_config.route_name}.xlsx"
         )
         self.cleaner.clean()
 
-    async def create_route(self, route_name: str, output_dir: str) -> None:
+    async def create_route(self, route_name: str, output_dir: str = ".") -> None:
+        """
+        Interfaz interactiva en la terminal para construir y guardar una ruta de scraping.
+
+        Esta función guía al usuario, mediante un CLI interactivo, en la creación
+        de una configuración de ruta (`RouteConfig`) que describe los niveles de
+        navegación dentro de la interfaz de "Consulta Amigable". El flujo inicia
+        cargando la página principal, pidiendo al usuario las filas y botones que
+        desea dar click, y avanzando nivel por nivel hasta se indique que no hay
+        más niveles que configurar. La ruta resultante se guarda en un archivo YAML
+        que luego se puede utilizar en la función run() para scrapear múltiples años.
+
+        Parameters
+        ----------
+        route_name : str
+            Nombre de la ruta a crear. Este nombre se utilizará tanto para
+            etiquetar la configuración como para el nombre del archivo
+            de salida.
+        output_dir : str, optional
+            Ruta al directorio donde se guardará el archivo YAML con la configuración
+            de la ruta. Por defecto se guardará en el directorio actual.
+
+        Returns
+        -------
+        None
+            No devuelve ningún valor, pero genera como efecto secundario un archivo
+            `<route_name>.yaml` en el directorio especificado.
+
+        Notes
+        -----
+        - Establece por defecto el año 2024 como año de referencia inicial para la
+        navegación.
+        - Utiliza `ConsultaCLI` para solicitar al usuario la configuración de cada
+        nivel (`LevelConfig`), incluyendo parámetros de fila y botón.
+        - Si un nivel no contiene valores de `button` ni `fila`, se considera el
+        final de la ruta y se guarda la configuración en disco.
+        - El archivo YAML generado incluye valores por defecto definidos en
+        `save_route_with_defaults`.
+
+        See Also
+        --------
+        ConsultaCLI : CLI interactivo para definir niveles de navegación.
+        RouteConfig : Clase que representa la configuración completa de una ruta.
+        save_route_with_defaults : Guarda un `RouteConfig` en un archivo YAML con
+            parámetros por defecto.
+        """
         cli = ConsultaCLI()
         output_dir = Path(output_dir)
         self.years = [2024]
         await self._initialize_driver()
         await self._navigate_to_url(self.years[0])
 
-        iframe = self.page.frame(self.main_frame)
-        await iframe.wait_for_selector("table.Data")
+        iframe = self.page.frame(Locator.main_frame)
+        await iframe.wait_for_selector(Locator.table_data)
 
-        route_config = RouteConfig(
-            route_name=route_name, output_path=str(output_dir)
-        )
+        route_config = RouteConfig(route_name=route_name, output_path=str(output_dir))
         self.level_index = 1
         while True:
-            level_config = await cli.create_level_config(name=f"Nivel {self.level_index}")
+            iframe = self.page.frame(Locator.main_frame)
+            await iframe.wait_for_selector(Locator.table_data)
+            buttons_locator = iframe.locator(Locator.buttons)
+            filas_locator = iframe.locator(Locator.table_data).locator(
+                Locator.text_rows
+            )
+            buttons = await buttons_locator.evaluate_all(
+                "elements => elements.map(el => el.value)"
+            )
+            filas = await filas_locator.all_inner_texts()
+            level_config = await cli.create_level_config(
+                name=f"Nivel {self.level_index}", buttons=buttons, filas=filas
+            )
             route_config.levels.append(level_config)
 
             if not level_config.button and not level_config.fila:
                 await self._cerrar_navegador()
+                route_path = output_dir / f"{route_name}.yaml"
                 save_route_with_defaults(
-                    route_config, path=output_dir / f"{route_name}.yaml"
+                    route_config, path=route_path
                 )
-                logger.info(f"Se guardó la ruta en {output_dir}")
+                logger.info(f"Se guardó la ruta en {route_path}")
                 break
             else:
-                self._navigate_level_simple(level_config.fila, level_config.button)
+                await self._navigate_level_simple(
+                    level_config.fila, level_config.button
+                )
 
     # TODO: Modularizar años
     async def run(
