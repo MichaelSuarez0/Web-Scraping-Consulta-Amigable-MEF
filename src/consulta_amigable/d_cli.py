@@ -3,7 +3,6 @@
 # =====================
 import asyncio
 from functools import wraps
-import sys
 from rich.console import Console
 from rich.table import Table
 import questionary

@@ -1,11 +1,11 @@
 
-from pathlib import Path
-from pydantic import BaseModel
 import yaml
+from pathlib import Path
+from .a_config import RouteConfig
 
 
-def save_route_with_defaults(
-    route: BaseModel,
+def guardar_ruta_yaml(
+    route: RouteConfig,
     path: Path,
     spacing_between_levels: bool = True
 ) -> None:
@@ -39,8 +39,32 @@ def save_route_with_defaults(
         final_yaml = base_yaml + "levels:\n" + levels_yaml_block + "\n"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(final_yaml, encoding="utf-8")
+        path.write_text
 
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
+        path = str(path)
         with path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(full_dict, f, allow_unicode=True, sort_keys=False)
+
+
+
+def cargar_ruta_yaml(
+    path: Path,
+) -> RouteConfig:
+    """
+    Carga un archivo YAML y lo convierte en una instancia de RouteConfig usando Pydantic.
+
+    Args:
+        path: Ruta del archivo .yml
+
+    Returns:
+        RouteConfig: Instancia validada de RouteConfig con los datos cargados
+
+    Raises:
+        ValidationError: Si los datos del YAML no coinciden con el modelo
+    """
+    with path.open('r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
+    
+    return RouteConfig.model_validate(data)

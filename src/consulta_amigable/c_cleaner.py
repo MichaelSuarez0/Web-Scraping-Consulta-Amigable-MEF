@@ -38,7 +38,7 @@ logger = logging.getLogger('consulta_amigable')
 
 # TODO: Convertir a clase tmb, un argumento para leer un excel y otro un df (integrar con consultaamigable)
 
-class Cleaner:
+class CCleaner:
     encabezados = [
         ("Departamento", ["UBI_DPTO", "Departamento"], ":"),
         ("Provincia", ["UBI_PROV", "Provincia"], ":"),
@@ -125,7 +125,7 @@ class Cleaner:
 
     def clean(self):
         """
-        Función principal para procesar los archivos extraídos.
+        Función principal para procesar los archivos extraídos de Consulta Amigable.
         - Lee los archivos extraídos si es necesario.
         - Convierte las últimas 8 columnas a numéricas.
         - Guarda los datos procesados en un nuevo archivo.
@@ -163,3 +163,5 @@ class Cleaner:
 
         # Guardar archivo procesado
         self.save_data()
+        return self.output_path
+
