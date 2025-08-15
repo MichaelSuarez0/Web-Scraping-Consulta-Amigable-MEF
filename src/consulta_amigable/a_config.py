@@ -21,13 +21,13 @@ Usage:
 # =====================
 # 0: Importación de librerías
 # =====================
-from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional
+from dataclasses import dataclass
 
-# =====================
-# 1: Modelos de Scraping
-# =====================
+# =========================================
+# 1: Modelos para guardar configuraciones
+# =========================================
 
 class LevelConfig(BaseModel):
     name: str
@@ -40,3 +40,18 @@ class RouteConfig(BaseModel):
     route_name: str
     output_path: str
     levels: Optional[list[LevelConfig]] = Field(default_factory=list)
+
+# =====================
+# 2: Selectores CSS
+# =====================
+@dataclass
+class Locators:
+    """
+    Locators en CSS presentes en la página de Consulta Amigable para interactuar con botones, filas, etc.
+    """
+    # Botones
+    main_frame = "frame0"
+    table_data = "table.Data"
+    buttons = "input[type='submit']"
+    text_rows = "td[align='left']"
+    

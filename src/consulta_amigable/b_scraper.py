@@ -27,32 +27,18 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
+import warnings
 from pathlib import Path
 from typing import Iterable
-import warnings
-import questionary
-from playwright.async_api import async_playwright, TimeoutError, Locator
+from playwright.async_api import async_playwright, TimeoutError
 from rich.console import Console
-from .a_config import LevelConfig, RouteConfig
+from .a_config import LevelConfig, RouteConfig, Locators
 from .c_cleaner import CCleaner
 from .f_logger import setup_logger
 from .e_export_yaml import guardar_ruta_yaml, cargar_ruta_yaml
 from .d_cli import ConsultaCLI
-from .g_locators import Locator
 
 logger = setup_logger()
-
-GLOBAL_STYLE = questionary.Style(
-    [
-        ("qmark", f"fg:ansiblue bold"),  # question mark in gray
-        ("question", "fg:#888888 bold"),  # question text in gray
-        ("answer", "fg:#ffffff bold"),  # submitted answer in white
-        ("pointer", "fg:#888888 bold"),  # pointer in gray
-        ("highlighted", "fg:#ffffff bg:#444444"),  # highlighted choice
-        ("selected", "fg:#ffffff bg:#666666"),  # style for selected item
-    ]
-)
-
 
 # =====================
 # Funciones de Utilidad
@@ -119,17 +105,17 @@ class ConsultaAmigable:
         else:
             await self._page.goto(self.URL_MENSUAL)
 
-    async def _click_on_element(self, element_text: str | Locator, row: bool = True):
+    async def _click_on_element(self, element_text: str | Locators, row: bool = True):
         """
         Hace clic en un elemento de la página utilizando su ID.
         """
-        iframe = self._page.frame(Locator.main_frame)
+        iframe = self._page.frame(Locators.main_frame)
         if row:
-            await iframe.locator(Locator.table_data).locator(Locator.text_rows).filter(
+            await iframe.locator(Locators.table_data).locator(Locators.text_rows).filter(
                 has_text=element_text
             ).click()
         else:
-            button = iframe.locator(Locator.buttons).filter(has_text=element_text)
+            button = iframe.locator(Locators.buttons).filter(has_text=element_text)
             await button.first.click()
         # if isinstance(element, str):
         #     await iframe.locator(element).click()
@@ -150,8 +136,8 @@ class ConsultaAmigable:
         datos_tabla = []
 
         # Seleccionar todas las filas de la tabla con clase 'Data'
-        iframe = self._page.frame(Locator.main_frame)
-        filas = await iframe.locator(Locator.table_data).locator("tr").all()
+        iframe = self._page.frame(Locators.main_frame)
+        filas = await iframe.locator(Locators.table_data).locator("tr").all()
 
         # Extraer los datos de cada fila
         for i, fila in enumerate(filas):
@@ -177,7 +163,7 @@ class ConsultaAmigable:
         """
         if not self._headers:
             try:
-                iframe = self._page.frame(Locator.main_frame)
+                iframe = self._page.frame(Locators.main_frame)
                 primer_encabezado = iframe.locator("tr[id='ctl00_CPH1_Mt0_Row0']")
                 segundo_encabezado = iframe.locator("tr[id='ctl00_CPH1_Mt0_Row1']")
                 tds = await primer_encabezado.locator("td").all()
@@ -218,8 +204,8 @@ class ConsultaAmigable:
         Verifica y realiza la extracción de datos de la tabla según el nivel actual.
         """
         level = self.route_config.levels[self.level_index]
-        iframe = self._page.frame(Locator.main_frame)
-        await iframe.wait_for_selector(Locator.table_data)
+        iframe = self._page.frame(Locators.main_frame)
+        await iframe.wait_for_selector(Locators.table_data)
         if level.extract_table:
             if not self._headers:
                 await self._get_final_headers()
@@ -286,10 +272,10 @@ class ConsultaAmigable:
             Lista con los datos extraídos durante la iteración.
         """
         level = self.route_config.levels[self.level_index]
-        iframe = self._page.frame(Locator.main_frame)
-        await iframe.wait_for_selector(Locator.table_data)
+        iframe = self._page.frame(Locators.main_frame)
+        await iframe.wait_for_selector(Locators.table_data)
         filas = (
-            await iframe.locator(Locator.table_data).locator(Locator.text_rows).all()
+            await iframe.locator(Locators.table_data).locator(Locators.text_rows).all()
         )
         self.logger.info(
             f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}"
@@ -307,7 +293,7 @@ class ConsultaAmigable:
                 for _ in range(levels_left):
                     await self._navigate_levels()
                 for _ in range(levels_left):  # TODO: Evaluar descomentar
-                    await iframe.wait_for_selector(Locator.table_data)
+                    await iframe.wait_for_selector(Locators.table_data)
                     try:
                         await self._page.go_back(timeout=100)
                     except TimeoutError:
@@ -340,8 +326,8 @@ class ConsultaAmigable:
             )
             await self._navigate_to_url(year)
 
-            iframe = self._page.frame(Locator.main_frame)
-            await iframe.wait_for_selector(Locator.table_data)
+            iframe = self._page.frame(Locators.main_frame)
+            await iframe.wait_for_selector(Locators.table_data)
 
             # Navegar a través de los niveles desde el primer nivel
             for _ in self.route_config.levels:
@@ -414,17 +400,17 @@ class ConsultaAmigable:
         await self._initialize_driver()
         await self._navigate_to_url(self.years[0])
 
-        iframe = self._page.frame(Locator.main_frame)
-        await iframe.wait_for_selector(Locator.table_data)
+        iframe = self._page.frame(Locators.main_frame)
+        await iframe.wait_for_selector(Locators.table_data)
 
         route_config = RouteConfig(route_name=route_name, output_path=str(output_dir))
         self.level_index = 1
         while True:
-            iframe = self._page.frame(Locator.main_frame)
-            await iframe.wait_for_selector(Locator.table_data)
-            buttons_locator = iframe.locator(Locator.buttons)
-            filas_locator = iframe.locator(Locator.table_data).locator(
-                Locator.text_rows
+            iframe = self._page.frame(Locators.main_frame)
+            await iframe.wait_for_selector(Locators.table_data)
+            buttons_locator = iframe.locator(Locators.buttons)
+            filas_locator = iframe.locator(Locators.table_data).locator(
+                Locators.text_rows
             )
             buttons = await buttons_locator.evaluate_all(
                 "elements => elements.map(el => el.value)"
