@@ -10,4 +10,4 @@ if __name__ == "__main__":
         headless = False,
         )
     
-    asyncio.run(scraper.crear_ruta(route_name = "salud", output_dir=YAML_DIR))
+    asyncio.run(scraper.crear_ruta(route_name="salud", output_dir=YAML_DIR))

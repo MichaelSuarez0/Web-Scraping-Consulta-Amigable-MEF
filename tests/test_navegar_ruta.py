@@ -11,13 +11,6 @@ scraper = ConsultaAmigable(
 
 def test_ruta_municipalidades():
     pass
-# scraper = ConsultaAmigable(
-#     ruta = ROUTE_MUNICIPALIDADES,
-#     years = years,
-#     timeout = 30,
-#     headless = False
-#     )
-
 
 def test_ruta_salud():
     asyncio.run(

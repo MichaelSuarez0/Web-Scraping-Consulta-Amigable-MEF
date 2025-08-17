@@ -81,7 +81,7 @@ class ConsultaAmigable:
             headless=self._headless, slow_mo=self._timeout
         )
         context = await self._browser.new_context(
-            viewport={"width": 1280, "height": 720}
+            viewport={"width": 1000, "height": 720}
         )
         self._page = await context.new_page()
         self._page.set_default_timeout(15_000)
