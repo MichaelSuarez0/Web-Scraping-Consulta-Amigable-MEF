@@ -36,8 +36,6 @@ logger = logging.getLogger('consulta_amigable')
 # Importación de data
 # =====================
 
-# TODO: Convertir a clase tmb, un argumento para leer un excel y otro un df (integrar con consultaamigable)
-
 class CCleaner:
     encabezados = [
         ("Departamento", ["UBI_DPTO", "Departamento"], ":"),

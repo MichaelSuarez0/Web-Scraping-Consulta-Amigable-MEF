@@ -51,7 +51,7 @@ requests==2.32.3
 
 > [!IMPORTANT]
 > Para clonar el repositorio instalar [Git](https://git-scm.com/downloads/win).
-> * [Guía](https://github.com/AlexEvanan/Version-control-guide-Git-GitHub) para la configuración inicial de GIT.
+> * [Guía](https://github.com/AlexEvanan/Version-control-guide-Git-GitHub) para la configuración inicial de Git.
 > * [Guía](https://github.com/AlexEvanan/Guide-Install-Python) para instalar Python.
 
 1. Abrir una terminal o línea de comandos Git Bash.
@@ -424,7 +424,6 @@ Este proyecto está licenciado bajo la Licencia MIT. Consulta el archivo [LICENS
 Evanan, M. A. (2025). Web Scraping: Consulta Amigable MEF (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.14876920
 
 ## Contactos
-evananalex@gmail.com
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/mayovaralexevanan/)
 [![X Twitter](https://img.shields.io/badge/Twitter-000000?style=flat&logo=x&logoColor=white)](https://x.com/alex_evanan)
