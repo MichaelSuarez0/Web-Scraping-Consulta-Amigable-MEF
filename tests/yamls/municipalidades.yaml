@@ -1,0 +1,38 @@
+route_name: municipalidades
+output_path: c:\Users\micha\OneDrive\Python\Web-Scraping-Consulta-Amigable-MEF\tests\yamls
+levels:
+- name: Nivel 1
+  button: Nivel de Gobierno
+  fila: TOTAL
+  iterate: false
+  extract_table: false
+
+- name: Nivel 2
+  button: Gob.Loc./Mancom.
+  fila: 'M: GOBIERNOS LOCALES'
+  iterate: false
+  extract_table: false
+
+- name: Nivel 3
+  button: Departamento
+  fila: 'M: MUNICIPALIDADES'
+  iterate: false
+  extract_table: false
+
+- name: Nivel 4
+  button: Provincia
+  fila: ITERAR
+  iterate: true
+  extract_table: false
+
+- name: Nivel 5
+  button: Municipalidad
+  fila: ITERAR
+  iterate: true
+  extract_table: false
+
+- name: Nivel 6
+  button: ''
+  fila: ''
+  iterate: false
+  extract_table: true

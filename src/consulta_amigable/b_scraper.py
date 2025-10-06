@@ -255,6 +255,29 @@ class ConsultaAmigable:
         await self._click_on_element(button_text, row=False)
         self.level_index += 1
 
+    async def _navigate_level_no_iter(self, row_text: str, button_text: str, iterate : bool) -> None:
+        """
+        Igual que _navigate_level_simple, pero impide la iteración.
+        Se utiliza en el CLI para que la interfaz que acompaña al usuario no itere,
+        sino que de frente seleccione la primera fila y continúe con la creación de ruta.
+
+        Parameters
+        ----------
+        row : str
+            Selector o identificador de la fila a hacer clic.
+        button_xpath : str
+            XPath del botón a hacer clic después de seleccionar la fila.
+        """
+        if iterate:
+            iframe = self._page.frame(Locators.main_frame)
+            filas_locator = iframe.locator(Locators.table_data).locator(
+                Locators.text_rows
+            )
+            row_text = (await filas_locator.all_inner_texts())[0]
+        await self._click_on_element(row_text, row=True)
+        await self._click_on_element(button_text, row=False)
+        self.level_index += 1
+
     async def _iterate_over_levels(self, button_text: str) -> list:
         """
         Navega a través de cada fila en el nivel actual, guardando el contexto,
@@ -428,8 +451,8 @@ class ConsultaAmigable:
                 logger.info(f"Se guardó la ruta en {route_path}")
                 break
             else:
-                await self._navigate_level_simple(
-                    level_config.fila, level_config.button
+                await self._navigate_level_no_iter(
+                    level_config.fila, level_config.button, level_config.iterate
                 )
 
     # TODO: VERIFICAR TYPE DE LOS AÑOS
