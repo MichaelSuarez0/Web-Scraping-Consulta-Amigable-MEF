@@ -30,9 +30,10 @@ Usage:
 import warnings
 from pathlib import Path
 from typing import Iterable
-from playwright.async_api import async_playwright, TimeoutError
+from playwright.async_api import async_playwright, TimeoutError, Page
 from rich.console import Console
-from .a_config import LevelConfig, RouteConfig, Locators
+
+from .a_config import RouteConfig, Locators
 from .c_cleaner import CCleaner
 from .f_logger import setup_logger
 from .e_export_yaml import guardar_ruta_yaml, cargar_ruta_yaml
@@ -52,12 +53,12 @@ class ConsultaAmigable:
         self._timeout = timeout
         self._playwright = None
         self._browser = None
-        self._page = None
-        self._cleaner = None
+        self._page: Page
+        self._cleaner: CCleaner
         self.logger = logger
 
-        self.route_config: RouteConfig = None
-        self.years = None
+        self.route_config: RouteConfig
+        self.years: list[int]
         self._year = 0
 
         self._extracted_data = []
@@ -359,7 +360,7 @@ class ConsultaAmigable:
             # Agregar metadatos: Año...
             self.level_index = 0
 
-    def _save_data(self, output_dir: Path) -> None:
+    def _save_data(self, output_dir: Path) -> str | Path:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
@@ -371,7 +372,7 @@ class ConsultaAmigable:
         )
         return self._cleaner.clean()
 
-    async def crear_ruta(self, route_name: str, output_dir: str = ".") -> None:
+    async def crear_ruta(self, route_name: str, output_dir: str | Path = ".") -> None:
         """
         Interfaz interactiva en la terminal para construir y guardar una ruta de scraping.
 
@@ -523,7 +524,7 @@ class ConsultaAmigable:
             if self._extracted_data:
                 self.logger.info("💾 Guardando datos...")
                 self._headers = ["Año", ""] + self._headers
-                output_path = self._save_data(output_dir=output_dir)
+                output_path = self._save_data(output_dir=Path(output_dir))
 
             await self._cerrar_navegador()
             self.logger.info("✅ Proceso finalizado, driver cerrado.")

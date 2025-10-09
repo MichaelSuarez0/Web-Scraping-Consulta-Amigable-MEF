@@ -39,7 +39,7 @@ class LevelConfig(BaseModel):
 class RouteConfig(BaseModel):
     route_name: str
     output_path: str
-    levels: Optional[list[LevelConfig]] = Field(default_factory=list)
+    levels: list[LevelConfig] = Field(default_factory=list)
 
 # =====================
 # 2: Selectores CSS
