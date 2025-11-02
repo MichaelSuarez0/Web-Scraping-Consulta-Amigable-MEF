@@ -33,7 +33,7 @@ from typing import Iterable
 from playwright.async_api import async_playwright, TimeoutError, Page
 from rich.console import Console
 
-from .a_config import RouteConfig, Locators
+from .a_config import LevelConfig, RouteConfig, Locators
 from .c_cleaner import CCleaner
 from .f_logger import setup_logger
 from .e_export_yaml import guardar_ruta_yaml, cargar_ruta_yaml
@@ -256,29 +256,6 @@ class ConsultaAmigable:
         await self._click_on_element(button_text, row=False)
         self.level_index += 1
 
-    async def _navigate_level_no_iter(self, row_text: str, button_text: str, iterate : bool) -> None:
-        """
-        Igual que _navigate_level_simple, pero impide la iteración.
-        Se utiliza en el CLI para que la interfaz que acompaña al usuario no itere,
-        sino que de frente seleccione la primera fila y continúe con la creación de ruta.
-
-        Parameters
-        ----------
-        row : str
-            Selector o identificador de la fila a hacer clic.
-        button_xpath : str
-            XPath del botón a hacer clic después de seleccionar la fila.
-        """
-        if iterate:
-            iframe = self._page.frame(Locators.main_frame)
-            filas_locator = iframe.locator(Locators.table_data).locator(
-                Locators.text_rows
-            )
-            row_text = (await filas_locator.all_inner_texts())[0]
-        await self._click_on_element(row_text, row=True)
-        await self._click_on_element(button_text, row=False)
-        self.level_index += 1
-
     async def _iterate_over_levels(self, button_text: str) -> list:
         """
         Navega a través de cada fila en el nivel actual, guardando el contexto,
@@ -371,6 +348,12 @@ class ConsultaAmigable:
             df, output_path=output_dir / f"{self.route_config.route_name}.xlsx"
         )
         return self._cleaner.clean()
+    
+    async def guardar_ruta_y_salir(self, output_dir: Path)-> None:
+        route_path = output_dir / f"{self.route_config.route_name}.yaml"
+        guardar_ruta_yaml(self.route_config, path=route_path)
+        logger.info(f"Se guardó la ruta en {route_path}")
+        await self._cerrar_navegador()
 
     async def crear_ruta(self, route_name: str, output_dir: str | Path = ".") -> None:
         """
@@ -427,34 +410,78 @@ class ConsultaAmigable:
         iframe = self._page.frame(Locators.main_frame)
         await iframe.wait_for_selector(Locators.table_data)
 
-        route_config = RouteConfig(route_name=route_name, output_path=str(output_dir))
+        self.route_config = RouteConfig(route_name=route_name, output_path=str(output_dir))
         self.level_index = 1
+        
         while True:
             iframe = self._page.frame(Locators.main_frame)
             await iframe.wait_for_selector(Locators.table_data)
-            buttons_locator = iframe.locator(Locators.buttons)
             filas_locator = iframe.locator(Locators.table_data).locator(
                 Locators.text_rows
             )
-            buttons = await buttons_locator.evaluate_all(
-                "elements => elements.map(el => el.value)"
-            )
-            filas = await filas_locator.all_inner_texts()
-            level_config = await cli.create_level_config(
-                name=f"Nivel {self.level_index}", buttons=buttons, filas=filas
-            )
-            route_config.levels.append(level_config)
 
-            if not level_config.button and not level_config.fila:
-                await self._cerrar_navegador()
-                route_path = output_dir / f"{route_name}.yaml"
-                guardar_ruta_yaml(route_config, path=route_path)
-                logger.info(f"Se guardó la ruta en {route_path}")
-                break
+            filas = await filas_locator.all_inner_texts()
+
+            # --- 1. Se pide confirmación para scrapear y seleccionar la fila ---
+            if not self.level_index == 1:
+                extract_table = await cli.confirm_table_extraction()
+                chosen_row = await cli.select_row(filas)
             else:
-                await self._navigate_level_no_iter(
-                    level_config.fila, level_config.button, level_config.iterate
+                extract_table = False
+                chosen_row = "TOTAL"
+            
+            # --- 2. Si se escogió TERMINAR, se guarda y sale del loop ---
+            if chosen_row == "TERMINAR":
+                await self.guardar_ruta_y_salir(output_dir)
+                break
+            
+            # --- 3. Si se escogió ITERAR, se hace click en la primera fila ---
+            if not chosen_row == "ITERAR":
+                iterate = False
+                await self._click_on_element(chosen_row, row=True)
+            else:
+                iterate = True
+                chosen_row = ""
+                iframe = self._page.frame(Locators.main_frame)
+                filas_locator = iframe.locator(Locators.table_data).locator(
+                    Locators.text_rows
                 )
+                row_text = (await filas_locator.all_inner_texts())[0]
+                await self._click_on_element(row_text, row=True)
+
+            # --- 4. Se pide escoger el botón (primera fila) ---
+            iframe = self._page.frame(Locators.main_frame)
+            buttons_locator = iframe.locator(Locators.buttons)
+            buttons = await buttons_locator.evaluate_all(
+                """elements =>
+                    elements
+                        .filter(el => getComputedStyle(el).display !== 'none')
+                        .map(el => el.value)
+                """
+            )
+            chosen_button = await cli.select_button(buttons)
+
+            # --- 5. Se muestra resumen del nivel y se pide confirmación ---
+            level_config = LevelConfig(
+                name=f"Nivel {self.level_index}",
+                button=chosen_button,
+                fila=chosen_row,
+                iterate=iterate,
+                extract_table=extract_table,
+            )
+            if not self.level_index == 1:
+                cli.show_level_summary_table(level=level_config)
+                confirm = await cli.confirm_level_and_continue()
+            else:
+                confirm = True
+
+            if not confirm:
+                continue # Repite el nivel sin guardar
+
+            self.route_config.levels.append(level_config)
+            self.level_index += 1
+            await self._click_on_element(chosen_button, row=False)
+            
 
     # TODO: VERIFICAR TYPE DE LOS AÑOS
     # TODO: Modificar see also según sphinx
@@ -531,23 +558,3 @@ class ConsultaAmigable:
             self.logger.info(f"Se dieron {self._clicks_number} clicks")
 
             return str(output_path)
-
-    # def select_route(self)-> str:
-    #     """
-    #     Muestra las rutas disponibles y permite al usuario seleccionar una.
-    #     """
-    #     self.logger.info("\n--- Rutas disponibles ---")
-    #     rutas_disponibles = list(self.years)
-
-    #     for i, ruta in enumerate(rutas_disponibles, start=1):
-    #         self.logger.info(f"{i}: {ruta}")
-
-    #     while True:
-    #         try:
-    #             opcion = int(input("\nElige una ruta (número): "))
-    #             if 1 <= opcion <= len(rutas_disponibles):
-    #                 return rutas_disponibles[opcion - 1]
-    #             else:
-    #                 self.logger.error("⚠️ Opción inválida, ingresa un número de la lista.")
-    #         except ValueError:
-    #             self.logger.error("⚠️ Entrada inválida, ingresa un número.")

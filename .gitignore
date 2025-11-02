@@ -25,3 +25,5 @@ d_analysis-noshare.ipynb
 # Archivos de logs
 *.log
 /data
+
+*.egg-info
