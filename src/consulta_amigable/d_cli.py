@@ -80,7 +80,7 @@ class ConsultaCLI:
         """Prompt to select a button in the first row"""
         return await self.select(
             message="Usa ↑ ↓ para moverte y Enter para seleccionar el botón:",
-            choices=available_buttons + ["NINGUNO"],
+            choices=available_buttons,
         )
 
     async def select_row(self, available_rows: list[str]) -> str:
@@ -91,7 +91,7 @@ class ConsultaCLI:
         )
 
     async def confirm_table_extraction(self):
-        return await self.confirm("¿Extraer datos de esta tabla?:", False)
+        return await self.confirm("¿Scrapear esta tabla?:", False)
 
     async def confirm_level_and_continue(self)-> bool:
         confirm = await self.select(
