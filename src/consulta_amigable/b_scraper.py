@@ -41,6 +41,7 @@ from .d_cli import ConsultaCLI
 
 logger = setup_logger()
 
+
 # =====================
 # Funciones de Utilidad
 # =====================
@@ -112,9 +113,12 @@ class ConsultaAmigable:
         """
         iframe = self._page.frame(Locators.main_frame)
         if row:
-            await iframe.locator(Locators.table_data).locator(Locators.text_rows).filter(
-                has_text=element_text
-            ).click()
+            await (
+                iframe.locator(Locators.table_data)
+                .locator(Locators.text_rows)
+                .filter(has_text=element_text)
+                .click()
+            )
         else:
             button = iframe.locator(Locators.buttons).filter(has_text=element_text)
             await button.first.click()
@@ -344,12 +348,11 @@ class ConsultaAmigable:
         import pandas as pd
 
         df = pd.DataFrame(self._extracted_data, columns=self._headers)
-        self._cleaner = CCleaner(
-            df, output_path=output_dir / f"{self.route_config.route_name}.xlsx"
-        )
+        output_path = output_dir / f"{self.route_config.route_name}.xlsx"
+        self._cleaner = CCleaner(input=df, output_path=output_path)
         return self._cleaner.clean()
-    
-    async def guardar_ruta_y_salir(self, output_dir: Path)-> None:
+
+    async def guardar_ruta_y_salir(self, output_dir: Path) -> None:
         route_path = output_dir / f"{self.route_config.route_name}.yaml"
         guardar_ruta_yaml(self.route_config, path=route_path)
         logger.info(f"Se guardó la ruta en {route_path}")
@@ -410,9 +413,11 @@ class ConsultaAmigable:
         iframe = self._page.frame(Locators.main_frame)
         await iframe.wait_for_selector(Locators.table_data)
 
-        self.route_config = RouteConfig(route_name=route_name, output_path=str(output_dir))
+        self.route_config = RouteConfig(
+            route_name=route_name, output_path=str(output_dir)
+        )
         self.level_index = 1
-        
+
         while True:
             iframe = self._page.frame(Locators.main_frame)
             await iframe.wait_for_selector(Locators.table_data)
@@ -429,12 +434,12 @@ class ConsultaAmigable:
             else:
                 extract_table = False
                 chosen_row = "TOTAL"
-            
+
             # --- 2. Si se escogió TERMINAR, se guarda y sale del loop ---
             if chosen_row == "TERMINAR":
                 await self.guardar_ruta_y_salir(output_dir)
                 break
-            
+
             # --- 3. Si se escogió ITERAR, se hace click en la primera fila ---
             if not chosen_row == "ITERAR":
                 iterate = False
@@ -476,19 +481,18 @@ class ConsultaAmigable:
                 confirm = True
 
             if not confirm:
-                continue # Repite el nivel sin guardar
+                continue  # Repite el nivel sin guardar
 
             self.route_config.levels.append(level_config)
             self.level_index += 1
             await self._click_on_element(chosen_button, row=False)
-            
 
     # TODO: VERIFICAR TYPE DE LOS AÑOS
     # TODO: Modificar see also según sphinx
     async def navegar_ruta(
         self,
         route: str | Path | RouteConfig,
-        years: list[int] | int,
+        years: Iterable[int] | int,
         output_dir: str | Path,
     ):
         """
@@ -502,7 +506,7 @@ class ConsultaAmigable:
         Parameters
         ----------
         route : Path or RouteConfig
-            Configuración de la ruta a seguir durante el scraping. Puede ser una ruta 
+            Configuración de la ruta a seguir durante el scraping. Puede ser una ruta
             (str o Path) a un archivo YAML creado a partir de `crear_ruta()` o un
             objeto `RouteConfig` ya instanciado.
         years : list[int] or int

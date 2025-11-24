@@ -30,11 +30,12 @@ import pandas as pd
 import logging
 import ubigeos_peru as ubg
 
-logger = logging.getLogger('consulta_amigable')
+logger = logging.getLogger("consulta_amigable")
 
 # =====================
 # Importación de data
 # =====================
+
 
 class CCleaner:
     encabezados = [
@@ -46,37 +47,14 @@ class CCleaner:
         ("Unidad Ejecutora", ["UE", "SEC_EJEC", "Unidad Ejecutora"], "-|:"),
     ]
 
-    def __init__(self, input: pd.DataFrame | str | Path, output_path: str | Path):
+    def __init__(self, input: pd.DataFrame, output_path: Path):
         self.input = input
-        self.df = None
-        self._obtain_df()
+        self.df = self.input
         self.output_path = output_path
 
-    def _obtain_df(self):
-        if isinstance(self.input, pd.DataFrame):
-            self.df = self.input
-        elif isinstance(self.input, str):
-            self.df = self.read_files()
-        else:
-            raise TypeError("Not a valid input type, should be either DataFrame or path (str)")
-        
-    def read_files(self):
-        """
-        Lee un archivo Excel (.xlsx, .xls) o CSV (.csv) y devuelve un DataFrame.
-        """
-        try:
-            if self.input.endswith((".xlsx", ".xls")):
-                return pd.read_excel(self.input)
-            elif self.input.endswith(".csv"):
-                return pd.read_csv(self.input)
-            else:
-                raise ValueError("Formato no soportado. Usa .xlsx, .xls o .csv.")
-        except Exception as e:
-            print(f"Error al leer el archivo '{self.input}': {e}")
-            return None
-
-
-    def split_column(self, source_col: str, new_cols: list[str], delimiter: str, max_splits=None):
+    def _split_column(
+        self, source_col: str, new_cols: list[str], delimiter: str, max_splits=None
+    ):
         """
         Divide una columna en dos nuevas columnas eliminando la original.
         """
@@ -98,42 +76,46 @@ class CCleaner:
         """
         Limpia múltiples columnas numéricas eliminando comas y convierte a tipo numérico.
         """
-        df = df.apply(lambda col: pd.to_numeric(col.astype(str).str.replace(",", ""), errors="coerce"))
+        df = df.apply(
+            lambda col: pd.to_numeric(
+                col.astype(str).str.replace(",", ""), errors="coerce"
+            )
+        )
         return df
-    
+
     def normalize_dep_column(self):
         for col in self.df.columns:
             if col.lower() in "departamento" or "departamento" in col.lower():
                 self.df[col] = self.df[col].apply(lambda x: str(x).strip())
-                self.df[col] = self.df[col].apply(lambda x: ubg.validate_departamento(str(x), on_error="capitalize"))
-
+                self.df[col] = ubg.validate_departamento(self.df[col], on_error="capitalize")
+            
             elif col.lower() in "provincia" or "provincia" in col.lower():
                 self.df[col] = self.df[col].apply(lambda x: str(x).strip())
-                self.df[col] = self.df[col].apply(lambda x: ubg.validate_ubicacion(str(x), on_error="capitalize"))
-    
+                self.df[col] = ubg.validate_provincia(self.df[col], on_error="capitalize")
+
+            elif col.lower() in "distrito" or "distrito" in col.lower():
+                self.df[col] = self.df[col].apply(lambda x: str(x).strip())
+                self.df[col] = ubg.validate_distrito(self.df[col], on_error="capitalize")
 
     def save_data(self):
         """
         Guarda los datos extraídos en un archivo Excel.
         """
-    
+
         self.df.to_excel(self.output_path, index=False)
         logger.info(f"Datos guardados correctamente como {self.output_path}")
-        
 
     def clean(self):
         """
         Función principal para procesar los archivos extraídos de Consulta Amigable.
-        - Lee los archivos extraídos si es necesario.
         - Convierte las últimas 8 columnas a numéricas.
+        - Normaliza los nombres de departamentos, provincias o distritos si existen (SAN MARTIN -> San Martín)
         - Guarda los datos procesados en un nuevo archivo.
         """
-        
-        # for file_key, config_file in FILE_CONFIGS.items():
-        #     logger.info(f"🔹 Procesando data: {file_key}")
+
         if "Departamento (Meta)" in list(self.df.columns):
             self.df = self.df.rename(columns={"Departamento (Meta)": "Departamento"})
-        
+
         empty_cols = [col for col in self.df.columns if col == ""]
         if empty_cols:
             self.df.drop(columns=empty_cols, inplace=True)
@@ -141,25 +123,28 @@ class CCleaner:
         # Aplicar split de columnas y mantener el orden
         columnas_nuevas = []
         primera_columna = [self.df.columns[0]]
-        for source_col, new_cols, delimiter in self.encabezados: 
-            if source_col in list(self.df.columns): # TODO: Verificar que los nombres de las columnas raw estén tal cual
-                self.df = self.split_column(source_col, new_cols, delimiter)
+        for source_col, new_cols, delimiter in self.encabezados:
+            if source_col in list(
+                self.df.columns
+            ):  # TODO: Verificar que los nombres de las columnas raw estén tal cual
+                self.df = self._split_column(source_col, new_cols, delimiter)
                 columnas_nuevas.extend(new_cols)
 
         # Obtener columnas restantes (las que no fueron afectadas por el split)
         columnas_restantes = [
-            col for col in self.df.columns if col not in primera_columna + columnas_nuevas
+            col
+            for col in self.df.columns
+            if col not in primera_columna + columnas_nuevas
         ]
 
         # Reordenar: Primera columna original → columnas del split → otras columnas
-        self.df = self.df[primera_columna + columnas_nuevas + columnas_restantes]        
-        
+        self.df = self.df[primera_columna + columnas_nuevas + columnas_restantes]
+
         # 2. Normalizar nombres de departamentos y provincias
         self.normalize_dep_column()
         # 1. Convertir las últimas 8 columnas a numéricas
-        self.df.iloc[:,-8:] = self.convert_to_numeric(self.df.iloc[:,-8:])
+        self.df.iloc[:, -8:] = self.convert_to_numeric(self.df.iloc[:, -8:])
 
         # Guardar archivo procesado
         self.save_data()
         return self.output_path
-
