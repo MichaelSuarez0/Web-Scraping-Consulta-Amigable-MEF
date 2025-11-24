@@ -6,14 +6,12 @@ readme = "README.md"
 requires-python = ">=3.10" # Por los type hints
 
 dependencies = [
-    "tqdm",
     "pandas",
     "playwright",
-    "pydantic",
     "PyYAML",
     "questionary",
     "rich",
-    "ubigeos_peru==0.1.0"
+    "ubigeos_peru"
 ]
 
 
