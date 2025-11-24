@@ -101,8 +101,15 @@ class CCleaner:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
+        guardado = False
+        while not guardado:
+            try:
+                self.df.to_excel(self.output_path, index=False)
+                guardado = True
+            except PermissionError:
+                logger.warning(f"No se puede guardar el archivo porque está abierto: {self.output_path}")
+                input("-> Presiona enter en la terminal cuando hayas cerrado el archivo para intentar de nuevo: ")
 
-        self.df.to_excel(self.output_path, index=False)
         logger.info(f"Datos guardados correctamente como {self.output_path}")
 
     def clean(self):
