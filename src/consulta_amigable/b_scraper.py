@@ -283,17 +283,21 @@ class ConsultaAmigable:
             await iframe.locator(Locators.table_data).locator(Locators.text_rows).all()
         )
         self.logger.info(
-            f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}"
+            f"📋 Se encontraron {len(filas)} filas para iterar en {level.name}."
         )
-
+        # > selector="table.Data >> td[align='left'] >> nth=0">
+        # > selector="table.Data >> td[align='left'] >> nth=0">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=1">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=2">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=3">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=4">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=5">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=6">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=7">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=8">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=9">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=10">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=11">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=12">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=13">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=14">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=15">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=16">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=17">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=18">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=19">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=20">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=21">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=22">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=23">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=24">, <Locator frame=<Frame name=frame0 url='https://apps5.mineco.gob.pe/transparencia/Navegador/Navegar_7.aspx?y=2020&ap=ActProy'> selector="table.Data >> td[align='left'] >> nth=25">]
         for i in range(len(filas)):
             fila = filas[i]
-            element_name = await fila.locator("td").nth(1).inner_text()
+            element_name = await fila.nth(0).all_inner_texts()
+            element_name = element_name[0]
+            # element_name = await fila.locator("td").nth(1).inner_text()
             self._context[level.name] = element_name  # Guardar el nombre en el contexto
             self.logger.info(f"➡️ Entrando en: {element_name}")
 
-            await self._navigate_level_simple(fila, button_text)
+            await self._navigate_level_simple(element_name, button_text)
             levels_left = len(self.route_config.levels) - (self.level_index + 1)
+            
             if levels_left > 0:
                 for _ in range(levels_left):
                     await self._navigate_levels()
@@ -308,6 +312,7 @@ class ConsultaAmigable:
                     self._clicks_number += 1
                 self.level_index -= levels_left
             else:
+                await iframe.wait_for_selector(Locators.table_data)
                 try:
                     await self._page.go_back(timeout=100)
                 except TimeoutError:
