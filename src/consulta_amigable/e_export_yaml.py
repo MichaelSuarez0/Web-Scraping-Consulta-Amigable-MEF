@@ -56,7 +56,7 @@ def cargar_ruta_yaml(
     Carga un archivo YAML y lo convierte en una instancia de RouteConfig usando Pydantic.
 
     Args:
-        path: Ruta del archivo .yml
+        path: Ruta del archivo .yaml
 
     Returns:
         RouteConfig: Instancia validada de RouteConfig con los datos cargados

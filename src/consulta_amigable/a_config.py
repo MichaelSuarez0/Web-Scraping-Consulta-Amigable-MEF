@@ -21,6 +21,7 @@ Usage:
 # =====================
 # 0: Importación de librerías
 # =====================
+from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import Optional
 from dataclasses import dataclass
@@ -28,6 +29,8 @@ from dataclasses import dataclass
 # =========================================
 # 1: Modelos para guardar configuraciones
 # =========================================
+
+GRABADOR_PATH = Path(__file__).parent / "g_grabador.js"
 
 class LevelConfig(BaseModel):
     name: str

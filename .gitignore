@@ -27,3 +27,6 @@ d_analysis-noshare.ipynb
 /data
 
 *.egg-info
+
+prueba*
+scripts/
