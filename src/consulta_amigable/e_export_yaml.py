@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 import yaml
@@ -7,9 +6,7 @@ from .a_config import RouteConfig
 
 
 def guardar_ruta_yaml(
-    route: RouteConfig,
-    path: Path,
-    spacing_between_levels: bool = True
+    route: RouteConfig, path: Path, spacing_between_levels: bool = True
 ) -> None:
     """
     Guarda un objeto RouteConfig como YAML incluyendo todas sus claves,
@@ -31,12 +28,14 @@ def guardar_ruta_yaml(
         base_yaml = yaml.safe_dump(
             {k: v for k, v in full_dict.items() if k != "levels"},
             allow_unicode=True,
-            sort_keys=False
+            sort_keys=False,
         )
 
         # Serializa cada level por separado (para insertar salto de línea entre ellos)
         levels_yaml = [
-            yaml.safe_dump([level], allow_unicode=True, sort_keys=False).strip("- ").rstrip()
+            yaml.safe_dump([level], allow_unicode=True, sort_keys=False)
+            .strip("- ")
+            .rstrip()
             for level in full_dict["levels"]
         ]
         levels_yaml_block = "\n\n".join(f"- {block}" for block in levels_yaml)
@@ -51,7 +50,6 @@ def guardar_ruta_yaml(
         path = str(path)
         with path.open("w", encoding="utf-8") as f:
             yaml.safe_dump(full_dict, f, allow_unicode=True, sort_keys=False)
-
 
 
 def cargar_ruta_yaml(
@@ -69,7 +67,7 @@ def cargar_ruta_yaml(
     Raises:
         ValidationError: Si los datos del YAML no coinciden con el modelo
     """
-    with path.open('r', encoding='utf-8') as f:
+    with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
-    
+
     return RouteConfig.model_validate(data)

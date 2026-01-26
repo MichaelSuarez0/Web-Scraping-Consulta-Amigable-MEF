@@ -27,6 +27,9 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
+import asyncio
+import subprocess
+import tempfile
 import warnings
 from pathlib import Path
 from typing import Iterable
@@ -39,7 +42,6 @@ from consulta_amigable.c_cleaner import CCleaner
 from consulta_amigable.d_cli import ConsultaCLI
 from consulta_amigable.e_export_yaml import cargar_ruta_yaml, guardar_ruta_yaml
 from consulta_amigable.f_logger import setup_logger
-from consulta_amigable.h_grabador import ClickRecorder
 
 logger = setup_logger()
 
@@ -47,6 +49,7 @@ logger = setup_logger()
 # =====================
 # Funciones de Utilidad
 # =====================
+
 
 class ConsultaAmigable:
     URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
@@ -571,23 +574,68 @@ class ConsultaAmigable:
 
             return str(output_path)
 
-    async def grabar_ruta(self, route_name: str, output_dir: str | Path = "."):
+    async def _grabar_ruta(self, route_name: str, output_dir: str | Path = "."):
         output_dir = Path(output_dir)
-        self.years = [2024]
-        output_file = Path(output_dir) / f"{str(route_name)}.yaml"
+        yaml_file = output_dir / f"{route_name}.yaml"
 
-        await self._initialize_driver()
-        await self._navigate_to_url(self.years[0])
-        iframe = self._page.frame(Locators.main_frame)
-        await iframe.wait_for_selector(Locators.table_data)
+        tmp_script = Path(tempfile.gettempdir()) / f"playwright_script_{route_name}_{id(self)}.py"
 
-        click_recorder = ClickRecorder(
-            self._page,
-            grabador_path=Path(__file__).parent / "g_grabador.js",
-            main_frame_name=Locators.main_frame,
-            table_selector=Locators.table_data,
-        )
+        try:
 
-        await click_recorder.grabar_clicks(output_file)
-        await self._cerrar_navegador()
+            self.logger.info("\n🎬 Iniciando grabación con Playwright Codegen...")
+            self.logger.info("Cierra el navegador cuando termines de grabar\n")
+
+            # Capturar el código generado en stdout (sin archivo)
+            subprocess.run(
+                [
+                    "playwright",
+                    "codegen",
+                    "--target",
+                    "python-async",
+                    "-o",
+                    str(tmp_script),
+                    # "--viewport-size", "1000,720",
+                    self.URL_ANUAL.format("2024"),
+                ],
+                capture_output=False
+            )
+
+            script_code = tmp_script.read_text(encoding='utf-8')
         
+        finally:
+            if tmp_script.exists():
+                tmp_script.unlink()
+            self.logger.debug(f"Archivo temporal eliminado: {tmp_script}")
+        
+        self.logger.info("Creando configuración de ruta...")
+
+        route_config = RouteConfig.from_script_string(
+            script_code=script_code,
+            route_name=route_name,
+            output_path=str(output_dir)
+        )
+        
+        # Verificar que se extrajeron niveles
+        if not route_config.levels:
+            self.logger.warning("No se detectaron niveles en el script")
+        
+        # Guardar YAML
+        guardar_ruta_yaml(route_config, yaml_file)
+        self.logger.info(f"Ruta guardada en: {yaml_file.resolve()}")
+
+        # # CLI interactivo para configurar
+        # print("\n" + "=" * 60)
+        # print("📝 CONFIGURACIÓN DE NIVELES")
+        # print("=" * 60)
+
+        # for level in route_config.levels:
+        #     print(f"\n{level.name}")
+        #     print(f"  Fila: {level.fila or '(ninguna)'}")
+        #     print(f"  Botón: {level.button or '(ninguno)'}")
+
+        #     level.iterate = input("  ¿ITERAR? (s/n): ").lower() == "s"
+        #     level.extract_table = input("  ¿SCRAPEAR? (s/n): ").lower() == "s"
+
+
+    def grabar_ruta(self, route_name: str, output_dir: str | Path = "."):
+        asyncio.run(self._grabar_ruta(route_name, output_dir))

@@ -8,10 +8,11 @@ requires-python = ">=3.10" # Por los type hints
 dependencies = [
     "pandas",
     "playwright",
+    "pydantic>=2.12.5",
     "PyYAML",
     "questionary",
     "rich",
-    "ubigeos_peru"
+    "ubigeos_peru",
 ]
 
 
@@ -23,15 +24,14 @@ dev = [
     "flake8>=6.0.0",
 ]
 
+# Instalar la librería localmente al ejecutar uv sync
 [build-system]
-requires = ["setuptools>=42", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
+[tool.hatch.build.targets.wheel]
+packages = ["src/consulta_amigable"]
 
-[tool.setuptools.packages.find]
-where = ["src"]
 
 [dependency-groups]
 dev = [

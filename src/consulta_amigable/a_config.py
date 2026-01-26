@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
+import re
 
 # =========================================
 # 1: Modelos para guardar configuraciones
@@ -49,15 +50,16 @@ class RouteConfig(BaseModel):
     output_path: str
     levels: list[LevelConfig] = Field(default_factory=list)
 
+    
     @classmethod
-    def from_clicks_json(cls, clicks_json: dict, route_name: str, output_path: str) -> "RouteConfig":
+    def from_script_string(cls, script_code: str, route_name: str, output_path: str) -> "RouteConfig":
         """
-        Convierte el JSON de clicks directamente en RouteConfig
+        Convierte código de script de Playwright en RouteConfig (sin archivo)
         
         Parameters
         ----------
-        clicks_json : dict
-            Diccionario con formato {"clicks": [{"tag": "TD", "valor": "...", ...}, ...]}
+        script_code : str
+            Código Python generado por playwright codegen
         route_name : str
             Nombre de la ruta
         output_path : str
@@ -69,22 +71,34 @@ class RouteConfig(BaseModel):
             Configuración de ruta lista para usar
         """
         levels = []
-        clicks = clicks_json.get("clicks", [])
-        i = 0
         level_num = 1
         
-        while i < len(clicks):
-            click = clicks[i]
+        # Regex patterns
+        cell_pattern = r'\.get_by_role\("cell",\s*name="([^"]+)"'
+        button_pattern = r'\.get_by_role\("button",\s*name="([^"]+)"'
+        
+        # Extraer todas las líneas de clicks
+        lines = [line.strip() for line in script_code.split('\n') if '.click()' in line]
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             
-            # Si es TD (fila)
-            if click["tag"] == "TD":
-                fila = click["valor"]
+            # Buscar click en celda (fila)
+            cell_match = re.search(cell_pattern, line)
+            if cell_match:
+                fila = cell_match.group(1)
                 button = None
                 
-                # Buscar el siguiente INPUT (botón)
-                if i + 1 < len(clicks) and clicks[i + 1]["tag"] == "INPUT":
-                    button = clicks[i + 1]["valor"]
-                    i += 2  # Saltar ambos clicks
+                # Buscar el siguiente botón
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1]
+                    button_match = re.search(button_pattern, next_line)
+                    if button_match:
+                        button = button_match.group(1)
+                        i += 2
+                    else:
+                        i += 1
                 else:
                     i += 1
                 
@@ -97,17 +111,17 @@ class RouteConfig(BaseModel):
                 ))
                 level_num += 1
             
-            # Si es INPUT solo (sin fila previa)
-            elif click["tag"] == "INPUT":
-                levels.append(LevelConfig(
-                    name=f"Nivel {level_num}",
-                    button=click["valor"],
-                    iterate=False,
-                    extract_table=False
-                ))
-                level_num += 1
-                i += 1
+            # Click solo en botón
             else:
+                button_match = re.search(button_pattern, line)
+                if button_match:
+                    levels.append(LevelConfig(
+                        name=f"Nivel {level_num}",
+                        button=button_match.group(1),
+                        iterate=False,
+                        extract_table=False
+                    ))
+                    level_num += 1
                 i += 1
         
         return cls(route_name=route_name, output_path=output_path, levels=levels)
