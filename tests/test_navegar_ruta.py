@@ -1,6 +1,7 @@
-from pathlib import Path
-from consulta_amigable import ConsultaAmigable
 import asyncio
+from pathlib import Path
+
+from consulta_amigable import ConsultaAmigable
 
 YAML_DIR = Path(__file__).parent / "yamls"
 PRODUCTOS_DIR = Path(__file__).parent / "productos"

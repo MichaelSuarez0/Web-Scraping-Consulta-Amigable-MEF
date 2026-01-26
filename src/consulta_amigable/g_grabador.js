@@ -1,63 +1,124 @@
-// Grabador de clicks para macros (vibecodeado)
-
-() => {
-    // Inicializar si no existe
-    if (!window.clicks) {
-        window.clicks = [];
-    }
-    
-    // Evitar duplicar listeners
-    if (window._clickListenerInjected) {
-        return;
-    }
+(() => {
+    if (!window.clicks) window.clicks = [];
+    if (window._clickListenerInjected) return;
     window._clickListenerInjected = true;
-    
-    // Función para guardar click
+
+    let nivelActual = Math.floor(window.clicks.filter(c => c.tag === 'INPUT').length);
+
+    function getValor(elemento) {
+        try {
+            const tr = elemento.closest('tr');
+            if (tr) {
+                const tdLeft = tr.querySelector('td[align="left"]');
+                if (tdLeft && tdLeft.innerText.trim()) return tdLeft.innerText.trim();
+            }
+            return elemento.innerText?.trim() || elemento.value || '';
+        } catch(e) {
+            return elemento.innerText?.trim() || elemento.value || '';
+        }
+    }
+
     function guardarClick(elemento) {
         const tag = elemento.tagName;
-        const texto = elemento.innerText?.trim() || '';
-        const valor = elemento.value || '';
         const tipo = elemento.type || '';
-        
+        const valor = getValor(elemento);
+
         const click = {
-            tag: tag,
-            texto: texto.substring(0, 100),
-            valor: valor,
-            tipo: tipo,
+            tag,
+            valor,
+            tipo,
             timestamp: Date.now()
         };
-        
+
         window.clicks.push(click);
-        console.log(`[CLICK #${window.clicks.length}] ${tag}: ${texto.substring(0, 40) || valor}`);
-        
-        // GUARDAR EN LOCALSTORAGE INMEDIATAMENTE (para botones)
+        if (tag === 'INPUT') nivelActual++;
+
         try {
             localStorage.setItem('_macro_clicks', JSON.stringify(window.clicks));
+            localStorage.setItem('_macro_nivel', nivelActual.toString());
         } catch(e) {}
     }
-    
-    // CAPTURAR CLICKS NORMALES (filas, etc)
-    document.addEventListener('click', (e) => {
-        // NO capturar botones submit aquí (ya se capturaron en mousedown)
-        if (e.target.tagName === 'INPUT' && e.target.type === 'submit') {
-            return;
+
+    function deshacerAlVolver() {
+        if (window.clicks.length === 0) return;
+
+        const ultimoClick = window.clicks[window.clicks.length - 1];
+        
+        if (ultimoClick.tag === 'TD') {
+            let tdsEliminados = 0;
+            for (let i = window.clicks.length - 1; i >= 0 && tdsEliminados < 2; i--) {
+                if (window.clicks[i].tag === 'TD') {
+                    window.clicks.splice(i, 1);
+                    tdsEliminados++;
+                }
+            }
+            
+            for (let i = window.clicks.length - 1; i >= 0; i--) {
+                if (window.clicks[i].tag === 'INPUT') {
+                    window.clicks.splice(i, 1);
+                    nivelActual--;
+                    break;
+                }
+            }
+        } 
+        else if (ultimoClick.tag === 'INPUT') {
+            window.clicks.pop();
+            nivelActual--;
+            
+            for (let i = window.clicks.length - 1; i >= 0; i--) {
+                if (window.clicks[i].tag === 'TD') {
+                    window.clicks.splice(i, 1);
+                    break;
+                }
+            }
         }
+        
+        try {
+            localStorage.setItem('_macro_clicks', JSON.stringify(window.clicks));
+            localStorage.setItem('_macro_nivel', nivelActual.toString());
+        } catch(e) {}
+    }
+
+    window.addEventListener('pageshow', (event) => {
+        if (event.persisted || performance.navigation.type === 2) {
+            setTimeout(() => {
+                try {
+                    const nivelGuardado = parseInt(localStorage.getItem('_macro_nivel') || '0');
+                    const inputsActuales = window.clicks.filter(c => c.tag === 'INPUT').length;
+                    
+                    if (nivelGuardado > inputsActuales) {
+                        deshacerAlVolver();
+                    }
+                } catch(e) {}
+            }, 100);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT' && e.target.type === 'submit') return;
         guardarClick(e.target);
     }, true);
-    
-    // CAPTURAR CLICKS EN BOTONES (ANTES de que se envíe el form)
+
     document.addEventListener('mousedown', (e) => {
         if (e.target.tagName === 'INPUT' && e.target.type === 'submit') {
+            const valor = getValor(e.target);
+            
+            if (valor.toLowerCase().includes('volver') || 
+                valor.toLowerCase().includes('atrás') ||
+                valor.toLowerCase().includes('retroceder')) {
+                deshacerAlVolver();
+                return;
+            }
+            
             guardarClick(e.target);
         }
     }, true);
-    
-    // Restaurar clicks de localStorage si existen
+
     try {
         const saved = localStorage.getItem('_macro_clicks');
         if (saved) {
             window.clicks = JSON.parse(saved);
-            console.log(`[GRABADOR] Restaurados ${window.clicks.length} clicks previos`);
+            nivelActual = parseInt(localStorage.getItem('_macro_nivel') || '0');
         }
-    } catch(e) {}                        
-}
+    } catch(e) {}
+})();

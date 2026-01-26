@@ -21,13 +21,13 @@ Usage:
         $ python 02_src/c_cleaner.py
 =====================
 """
-
 # =====================
 # Importación de librerías
 # =====================
-from pathlib import Path
-import pandas as pd
 import logging
+from pathlib import Path
+
+import pandas as pd
 import ubigeos_peru as ubg
 
 logger = logging.getLogger("consulta_amigable")
@@ -87,15 +87,21 @@ class CCleaner:
         for col in self.df.columns:
             if col.lower() in "departamento" or "departamento" in col.lower():
                 self.df[col] = self.df[col].apply(lambda x: str(x).strip())
-                self.df[col] = ubg.validate_departamento(self.df[col], on_error="capitalize")
-            
+                self.df[col] = ubg.validate_departamento(
+                    self.df[col], on_error="capitalize"
+                )
+
             elif col.lower() in "provincia" or "provincia" in col.lower():
                 self.df[col] = self.df[col].apply(lambda x: str(x).strip())
-                self.df[col] = ubg.validate_provincia(self.df[col], on_error="capitalize")
+                self.df[col] = ubg.validate_provincia(
+                    self.df[col], on_error="capitalize"
+                )
 
             elif col.lower() in "distrito" or "distrito" in col.lower():
                 self.df[col] = self.df[col].apply(lambda x: str(x).strip())
-                self.df[col] = ubg.validate_distrito(self.df[col], on_error="capitalize")
+                self.df[col] = ubg.validate_distrito(
+                    self.df[col], on_error="capitalize"
+                )
 
     def save_data(self):
         """
@@ -107,8 +113,12 @@ class CCleaner:
                 self.df.to_excel(self.output_path, index=False)
                 guardado = True
             except PermissionError:
-                logger.warning(f"No se puede guardar el archivo porque está abierto: {self.output_path}")
-                input("-> Presiona enter en la terminal cuando hayas cerrado el archivo para intentar de nuevo: ")
+                logger.warning(
+                    f"No se puede guardar el archivo porque está abierto: {self.output_path}"
+                )
+                input(
+                    "-> Presiona enter en la terminal cuando hayas cerrado el archivo para intentar de nuevo: "
+                )
 
         logger.info(f"Datos guardados correctamente como {self.output_path}")
 

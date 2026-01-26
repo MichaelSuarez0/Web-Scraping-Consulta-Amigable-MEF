@@ -1,6 +1,8 @@
 
-import yaml
 from pathlib import Path
+
+import yaml
+
 from .a_config import RouteConfig
 
 
@@ -18,6 +20,9 @@ def guardar_ruta_yaml(
         path: Ruta del archivo .yml
         spacing_between_levels: Inserta líneas en blanco entre niveles si True.
     """
+    # La fila del primer nivel siempre es TOTAL para readability
+    route.levels[0].fila = "TOTAL"
+
     # Extrae el dict completo, con defaults y claves vacías
     full_dict = route.model_dump(mode="python")
 

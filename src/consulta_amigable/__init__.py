@@ -1,6 +1,6 @@
+from .a_config import LevelConfig, RouteConfig
 from .b_scraper import ConsultaAmigable
-from .a_config import RouteConfig, LevelConfig
-from .e_export_yaml import guardar_ruta_yaml, cargar_ruta_yaml
+from .e_export_yaml import cargar_ruta_yaml, guardar_ruta_yaml
 
 # from .a_config import ROUTE_MUNICIPALIDADES, ROUTE_SALUD, RouteConfig
 

@@ -27,24 +27,27 @@ Usage:
 # =====================
 # Importación de librerías
 # =====================
-import json
 import warnings
 from pathlib import Path
 from typing import Iterable
-from playwright.async_api import async_playwright, TimeoutError, Page
+
+from playwright.async_api import Page, TimeoutError, async_playwright
 from rich.console import Console
 
-from .a_config import LevelConfig, RouteConfig, Locators, GRABADOR_PATH
-from .c_cleaner import CCleaner
-from .f_logger import setup_logger
-from .e_export_yaml import guardar_ruta_yaml, cargar_ruta_yaml
-from .d_cli import ConsultaCLI
+from consulta_amigable.a_config import LevelConfig, Locators, RouteConfig
+from consulta_amigable.c_cleaner import CCleaner
+from consulta_amigable.d_cli import ConsultaCLI
+from consulta_amigable.e_export_yaml import cargar_ruta_yaml, guardar_ruta_yaml
+from consulta_amigable.f_logger import setup_logger
+from consulta_amigable.h_grabador import ClickRecorder
 
 logger = setup_logger()
+
 
 # =====================
 # Funciones de Utilidad
 # =====================
+
 class ConsultaAmigable:
     URL_MENSUAL = "https://apps5.mineco.gob.pe/transparencia/mensual/"
     URL_ANUAL = "https://apps5.mineco.gob.pe/transparencia/Navegador/default.aspx?y={}&ap=ActProy"
@@ -297,7 +300,7 @@ class ConsultaAmigable:
 
             await self._navigate_level_simple(element_name, button_text)
             levels_left = len(self.route_config.levels) - (self.level_index + 1)
-            
+
             if levels_left > 0:
                 for _ in range(levels_left):
                     await self._navigate_levels()
@@ -568,125 +571,23 @@ class ConsultaAmigable:
 
             return str(output_path)
 
-    async def grabar_clicks(
-        self,
-        output_file: str | Path,
-        year: int = 2024
-    ) -> None:
-        """
-        Graba TODOS los clicks que haces y los guarda en un JSON.
-        
-        Cierra el navegador cuando termines y se guarda automáticamente.
-        
-        Parameters
-        ----------
-        output_file : str | Path
-            Ruta del archivo JSON donde guardar los clicks
-        year : int
-            Año para navegar (default: 2024)
-        """
-        output_file = Path(output_file)
-        
-        await self._initialize_driver()
-        await self._navigate_to_url(year)
-        
-        # Array global para acumular clicks de TODAS las navegaciones
-        todos_los_clicks = []
-        
-        # ==========================================
-        # FUNCIÓN PARA INYECTAR EL GRABADOR
-        # ==========================================
-        async def inyectar_grabador():
-            """Inyecta el listener de clicks en el iframe"""
-            try:
-                iframe = self._page.frame(Locators.main_frame)
-                if not iframe:
-                    return
-                
-                await iframe.wait_for_selector(Locators.table_data, timeout=5000)
-                script = GRABADOR_PATH.read_text(encoding="utf-8")
+    async def grabar_ruta(self, route_name: str, output_dir: str | Path = "."):
+        output_dir = Path(output_dir)
+        self.years = [2024]
+        output_file = Path(output_dir) / f"{str(route_name)}.yaml"
 
-                await iframe.evaluate(script)
-                
-            except Exception as e:
-                print(f"⚠️  Error inyectando: {e}")
+        await self._initialize_driver()
+        await self._navigate_to_url(self.years[0])
+        iframe = self._page.frame(Locators.main_frame)
+        await iframe.wait_for_selector(Locators.table_data)
+
+        click_recorder = ClickRecorder(
+            self._page,
+            grabador_path=Path(__file__).parent / "g_grabador.js",
+            main_frame_name=Locators.main_frame,
+            table_selector=Locators.table_data,
+        )
+
+        await click_recorder.grabar_clicks(output_file)
+        await self._cerrar_navegador()
         
-        # Inyectar inicialmente
-        await inyectar_grabador()
-        
-        # ==========================================
-        # RE-INYECTAR CADA VEZ QUE EL IFRAME NAVEGA
-        # ==========================================
-        async def on_frame_navigated(frame):
-            """Se ejecuta cada vez que el iframe navega"""
-            if frame.name == Locators.main_frame:
-                await inyectar_grabador()
-        
-        self._page.on("framenavigated", on_frame_navigated)
-        
-        print("\n🎬 GRABANDO CLICKS")
-        print("Haz tus clicks normalmente")
-        print("Cierra el navegador cuando termines")
-        print("Abre la consola del navegador (F12) para ver los clicks en tiempo real\n")
-        
-        # ==========================================
-        # POLLING: Leer clicks periódicamente
-        # ==========================================
-        try:
-            while True:
-                try:
-                    iframe = self._page.frame(Locators.main_frame)
-                    if iframe:
-                        # Leer clicks del iframe Y de localStorage
-                        clicks_iframe = await iframe.evaluate("""
-                            () => {
-                                // Intentar leer de localStorage primero (tiene los clicks de botones)
-                                try {
-                                    const saved = localStorage.getItem('_macro_clicks');
-                                    if (saved) {
-                                        return JSON.parse(saved);
-                                    }
-                                } catch(e) {}
-                                
-                                // Fallback a window.clicks
-                                return window.clicks || [];
-                            }
-                        """)
-                        
-                        # Actualizar la lista global (sobreescribir, ya que localStorage tiene todo)
-                        if clicks_iframe and len(clicks_iframe) > len(todos_los_clicks):
-                            todos_los_clicks = clicks_iframe
-                    
-                    await self._page.wait_for_timeout(500)
-                    
-                except Exception:
-                    # Navegador cerrado
-                    break
-                    
-        except KeyboardInterrupt:
-            pass
-        
-        # ==========================================
-        # GUARDAR JSON
-        # ==========================================
-        print("\n💾 Guardando clicks...")
-        
-        try:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(todos_los_clicks, f, indent=2, ensure_ascii=False)
-            
-            print(f"✅ Guardado: {output_file}")
-            print(f"📊 Total de clicks: {len(todos_los_clicks)}")
-            
-            # Mostrar resumen
-            if todos_los_clicks:
-                print("\n📋 Resumen:")
-                for i, click in enumerate(todos_los_clicks, 1):
-                    display = click['texto'][:40] or click['valor'] or click['tag']
-                    print(f"  {i}. {click['tag']}: {display}")
-            
-        except Exception as e:
-            print(f"❌ Error guardando: {e}")
-        
-        finally:
-            await self._cerrar_navegador()
