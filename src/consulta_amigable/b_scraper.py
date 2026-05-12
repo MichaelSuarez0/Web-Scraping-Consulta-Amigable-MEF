@@ -117,6 +117,7 @@ class ConsultaAmigable:
         """
         Hace clic en un elemento de la página utilizando su ID.
         """
+        # Para que no guarde el iframe anterior mientras carga
         iframe = self._page.frame(Locators.main_frame)
         if row:
             await (
@@ -245,6 +246,7 @@ class ConsultaAmigable:
         level = self.route_config.levels[self.level_index]
 
         await self._assert_extraction()
+        # Aquí
         if level.button:
             if level.fila:
                 await self._navigate_level_simple(level.fila, level.button)
@@ -262,6 +264,7 @@ class ConsultaAmigable:
         button_xpath : str
             XPath del botón a hacer clic después de seleccionar la fila.
         """
+        await self._page.wait_for_timeout(150) # Se necesita una solución más robusta que esta
         await self._click_on_element(row_text, row=True)
         await self._click_on_element(button_text, row=False)
         self.level_index += 1
@@ -344,6 +347,7 @@ class ConsultaAmigable:
 
             iframe = self._page.frame(Locators.main_frame)
             await iframe.wait_for_selector(Locators.table_data)
+            await iframe.locator(Locators.buttons).first.wait_for(state="visible")
 
             # Navegar a través de los niveles desde el primer nivel
             for _ in self.route_config.levels:
@@ -369,52 +373,9 @@ class ConsultaAmigable:
         logger.info(f"Se guardó la ruta en {route_path}")
         await self._cerrar_navegador()
 
-    async def crear_ruta(self, route_name: str, output_dir: str | Path = ".") -> None:
-        """
-        Interfaz interactiva en la terminal para construir y guardar una ruta de scraping.
-
-        Esta función guía al usuario, mediante un CLI interactivo, en la creación
-        de una configuración de ruta (`RouteConfig`) que describe los niveles de
-        navegación dentro de la interfaz de "Consulta Amigable". El flujo inicia
-        cargando la página principal, pidiendo al usuario las filas y botones que
-        desea dar click, y avanzando nivel por nivel hasta se indique que no hay
-        más niveles que configurar. La ruta resultante se guarda en un archivo YAML
-        que luego se puede utilizar en la función run() para scrapear múltiples años.
-
-        Parameters
-        ----------
-        route_name : str
-            Nombre de la ruta a crear. Este nombre se utilizará tanto para
-            etiquetar la configuración como para el nombre del archivo
-            de salida.
-        output_dir : str, optional
-            Ruta al directorio donde se guardará el archivo YAML con la configuración
-            de la ruta. Por defecto se guardará en el directorio actual.
-
-        Returns
-        -------
-        None
-            No devuelve ningún valor, pero genera como efecto secundario un archivo
-            `<route_name>.yaml` en el directorio especificado.
-
-        Notes
-        -----
-        - Establece por defecto el año 2024 como año de referencia inicial para la
-        navegación.
-        - Utiliza `ConsultaCLI` para solicitar al usuario la configuración de cada
-        nivel (`LevelConfig`), incluyendo parámetros de fila y botón.
-        - Si un nivel no contiene valores de `button` ni `fila`, se considera el
-        final de la ruta y se guarda la configuración en disco.
-        - El archivo YAML generado incluye valores por defecto definidos en
-        `save_route_with_defaults`.
-
-        See Also
-        --------
-        ConsultaCLI : CLI interactivo para definir niveles de navegación.
-        RouteConfig : Clase que representa la configuración completa de una ruta.
-        save_route_with_defaults : Guarda un `RouteConfig` en un archivo YAML con
-            parámetros por defecto.
-        """
+    async def _crear_ruta_async(
+        self, route_name: str, output_dir: str | Path = "."
+    ) -> None:
         cli = ConsultaCLI()
         output_dir = Path(output_dir)
         self.years = [2024]
@@ -500,7 +461,128 @@ class ConsultaAmigable:
 
     # TODO: VERIFICAR TYPE DE LOS AÑOS
     # TODO: Modificar see also según sphinx
-    async def navegar_ruta(
+    async def _navegar_ruta_async(
+        self,
+        route: str | Path | RouteConfig,
+        years: Iterable[int] | int,
+        output_dir: str | Path,
+    ):
+        if isinstance(route, (str, Path)):
+            path = Path(route)
+            route = cargar_ruta_yaml(path)
+        self.route_config = route
+
+        self.years = list(years) if isinstance(years, Iterable) else [years]
+        await self._initialize_driver()
+
+        try:
+            # print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
+
+            # Iterar sobre los años y extraer datos
+            await self._extract_data_by_year()
+
+        finally:
+            output_path = None
+            # Guardar los datos finales si se obtuvieron datos completos
+            if self._extracted_data:
+                self.logger.info("💾 Guardando datos...")
+                self._headers = ["Año", ""] + self._headers
+                output_path = self._save_data(output_dir=Path(output_dir))
+
+            await self._cerrar_navegador()
+            self.logger.info("✅ Proceso finalizado, driver cerrado.")
+            self.logger.info(f"Se dieron {self._clicks_number} clicks")
+
+            return str(output_path)
+
+    async def _grabar_ruta_async(self, path: str | Path = "."):
+        path = Path(path)
+        yaml_file = path if path.suffix == ".yaml" else path.with_suffix(".yaml")
+
+        tmp_script = (
+            Path(tempfile.gettempdir()) / f"playwright_script_{path.name}_{id(self)}.py"
+        )
+
+        try:
+            self.logger.info("\n🎬 Iniciando grabación con Playwright Codegen...")
+            self.logger.info("Cierra el navegador cuando termines de grabar\n")
+
+            # Capturar el código generado en stdout (sin archivo)
+            subprocess.run(
+                [
+                    "playwright",
+                    "codegen",
+                    "--target",
+                    "python-async",
+                    "-o",
+                    str(tmp_script),
+                    # "--viewport-size", "1000,720",
+                    self.URL_ANUAL.format("2024"),
+                ],
+                capture_output=False,
+            )
+
+            script_code = tmp_script.read_text(encoding="utf-8")
+
+        finally:
+            if tmp_script.exists():
+                tmp_script.unlink()
+            self.logger.debug(f"Archivo temporal eliminado: {tmp_script}")
+
+        self.logger.info("Creando configuración de ruta...")
+
+        route_config = RouteConfig.from_script_string(
+            script_code=script_code, yaml_file=yaml_file
+        )
+
+        # Verificar que se extrajeron niveles
+        if not route_config.levels:
+            self.logger.warning("No se detectaron niveles en el script")
+
+        # Guardar YAML
+        guardar_ruta_yaml(route_config, yaml_file)
+        self.logger.info(f"Ruta guardada en: {yaml_file.resolve()}")
+
+        # # CLI interactivo para configurar
+        # print("\n" + "=" * 60)
+        # print("📝 CONFIGURACIÓN DE NIVELES")
+        # print("=" * 60)
+
+        # for level in route_config.levels:
+        #     print(f"\n{level.name}")
+        #     print(f"  Fila: {level.fila or '(ninguna)'}")
+        #     print(f"  Botón: {level.button or '(ninguno)'}")
+
+        #     level.iterate = input("  ¿ITERAR? (s/n): ").lower() == "s"
+        #     level.extract_table = input("  ¿SCRAPEAR? (s/n): ").lower() == "s"
+
+    def grabar_ruta(self, path: str | Path = "."):
+        """
+        Graba una ruta de navegación usando Playwright Codegen y la guarda en YAML.
+
+        Esta función inicia un proceso de grabación con Playwright Codegen para
+        capturar los pasos de navegación en la interfaz de "Consulta Amigable".
+        El código generado se transforma en una configuración `RouteConfig` y se
+        guarda en un archivo YAML en el directorio especificado.
+
+        Parameters
+        ----------
+        route_name : str
+            Nombre de la ruta a crear. Se utiliza tanto para el archivo YAML
+            como para la configuración interna.
+        output_dir : str or Path, optional
+            Directorio donde se guardará el archivo YAML. Por defecto es el
+            directorio actual.
+
+        Returns
+        -------
+        None
+            No devuelve un valor, pero crea un archivo `<route_name>.yaml`
+            con la configuración de la ruta.
+        """
+        asyncio.run(self._grabar_ruta_async(path))
+
+    def navegar_ruta(
         self,
         route: str | Path | RouteConfig,
         years: Iterable[int] | int,
@@ -545,97 +627,52 @@ class ConsultaAmigable:
         _extract_data_by_year : Lógica de extracción de datos para cada año.
         _save_data : Guarda los datos recolectados en disco.
         """
+        asyncio.run(self._navegar_ruta_async(route, years, output_dir))
 
-        if isinstance(route, (str, Path)):
-            path = Path(route)
-            route = cargar_ruta_yaml(path)
-        self.route_config = route
+    def crear_ruta(self, route_name: str, output_dir: str | Path = "."):
+        """
+        Interfaz interactiva en la terminal para construir y guardar una ruta de scraping.
 
-        self.years = list(years) if isinstance(years, Iterable) else [years]
-        await self._initialize_driver()
+        Esta función guía al usuario, mediante un CLI interactivo, en la creación
+        de una configuración de ruta (`RouteConfig`) que describe los niveles de
+        navegación dentro de la interfaz de "Consulta Amigable". El flujo inicia
+        cargando la página principal, pidiendo al usuario las filas y botones que
+        desea dar click, y avanzando nivel por nivel hasta se indique que no hay
+        más niveles que configurar. La ruta resultante se guarda en un archivo YAML
+        que luego se puede utilizar en la función run() para scrapear múltiples años.
 
-        try:
-            # print(f"\n🔍 Iniciando scraping para la ruta: {ruta_seleccionada}")
+        Parameters
+        ----------
+        route_name : str
+            Nombre de la ruta a crear. Este nombre se utilizará tanto para
+            etiquetar la configuración como para el nombre del archivo
+            de salida.
+        output_dir : str, optional
+            Ruta al directorio donde se guardará el archivo YAML con la configuración
+            de la ruta. Por defecto se guardará en el directorio actual.
 
-            # Iterar sobre los años y extraer datos
-            await self._extract_data_by_year()
+        Returns
+        -------
+        None
+            No devuelve ningún valor, pero genera como efecto secundario un archivo
+            `<route_name>.yaml` en el directorio especificado.
 
-        finally:
-            output_path = None
-            # Guardar los datos finales si se obtuvieron datos completos
-            if self._extracted_data:
-                self.logger.info("💾 Guardando datos...")
-                self._headers = ["Año", ""] + self._headers
-                output_path = self._save_data(output_dir=Path(output_dir))
+        Notes
+        -----
+        - Establece por defecto el año 2024 como año de referencia inicial para la
+        navegación.
+        - Utiliza `ConsultaCLI` para solicitar al usuario la configuración de cada
+        nivel (`LevelConfig`), incluyendo parámetros de fila y botón.
+        - Si un nivel no contiene valores de `button` ni `fila`, se considera el
+        final de la ruta y se guarda la configuración en disco.
+        - El archivo YAML generado incluye valores por defecto definidos en
+        `save_route_with_defaults`.
 
-            await self._cerrar_navegador()
-            self.logger.info("✅ Proceso finalizado, driver cerrado.")
-            self.logger.info(f"Se dieron {self._clicks_number} clicks")
-
-            return str(output_path)
-
-    async def _grabar_ruta(self, route_name: str, output_dir: str | Path = "."):
-        output_dir = Path(output_dir)
-        yaml_file = output_dir / f"{route_name}.yaml"
-
-        tmp_script = Path(tempfile.gettempdir()) / f"playwright_script_{route_name}_{id(self)}.py"
-
-        try:
-
-            self.logger.info("\n🎬 Iniciando grabación con Playwright Codegen...")
-            self.logger.info("Cierra el navegador cuando termines de grabar\n")
-
-            # Capturar el código generado en stdout (sin archivo)
-            subprocess.run(
-                [
-                    "playwright",
-                    "codegen",
-                    "--target",
-                    "python-async",
-                    "-o",
-                    str(tmp_script),
-                    # "--viewport-size", "1000,720",
-                    self.URL_ANUAL.format("2024"),
-                ],
-                capture_output=False
-            )
-
-            script_code = tmp_script.read_text(encoding='utf-8')
-        
-        finally:
-            if tmp_script.exists():
-                tmp_script.unlink()
-            self.logger.debug(f"Archivo temporal eliminado: {tmp_script}")
-        
-        self.logger.info("Creando configuración de ruta...")
-
-        route_config = RouteConfig.from_script_string(
-            script_code=script_code,
-            route_name=route_name,
-            output_path=str(output_dir)
-        )
-        
-        # Verificar que se extrajeron niveles
-        if not route_config.levels:
-            self.logger.warning("No se detectaron niveles en el script")
-        
-        # Guardar YAML
-        guardar_ruta_yaml(route_config, yaml_file)
-        self.logger.info(f"Ruta guardada en: {yaml_file.resolve()}")
-
-        # # CLI interactivo para configurar
-        # print("\n" + "=" * 60)
-        # print("📝 CONFIGURACIÓN DE NIVELES")
-        # print("=" * 60)
-
-        # for level in route_config.levels:
-        #     print(f"\n{level.name}")
-        #     print(f"  Fila: {level.fila or '(ninguna)'}")
-        #     print(f"  Botón: {level.button or '(ninguno)'}")
-
-        #     level.iterate = input("  ¿ITERAR? (s/n): ").lower() == "s"
-        #     level.extract_table = input("  ¿SCRAPEAR? (s/n): ").lower() == "s"
-
-
-    def grabar_ruta(self, route_name: str, output_dir: str | Path = "."):
-        asyncio.run(self._grabar_ruta(route_name, output_dir))
+        See Also
+        --------
+        ConsultaCLI : CLI interactivo para definir niveles de navegación.
+        RouteConfig : Clase que representa la configuración completa de una ruta.
+        save_route_with_defaults : Guarda un `RouteConfig` en un archivo YAML con
+            parámetros por defecto.
+        """
+        asyncio.run(self._crear_ruta_async(route_name, output_dir))

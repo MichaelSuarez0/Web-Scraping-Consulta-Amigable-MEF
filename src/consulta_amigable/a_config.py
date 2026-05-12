@@ -52,7 +52,7 @@ class RouteConfig(BaseModel):
 
     
     @classmethod
-    def from_script_string(cls, script_code: str, route_name: str, output_path: str) -> "RouteConfig":
+    def from_script_string(cls, script_code: str, yaml_file: Path) -> "RouteConfig":
         """
         Convierte código de script de Playwright en RouteConfig (sin archivo)
         
@@ -124,7 +124,7 @@ class RouteConfig(BaseModel):
                     level_num += 1
                 i += 1
         
-        return cls(route_name=route_name, output_path=output_path, levels=levels)
+        return cls(route_name=yaml_file.stem, output_path=str(yaml_file), levels=levels)
 
 
 # =====================
