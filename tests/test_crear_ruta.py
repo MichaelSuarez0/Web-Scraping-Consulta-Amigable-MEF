@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 
 from consulta_amigable import ConsultaAmigable
@@ -11,4 +10,4 @@ if __name__ == "__main__":
         headless=False,
     )
 
-    asyncio.run(scraper.crear_ruta(route_name="prueba2", output_dir=YAML_DIR))
+    scraper.crear_ruta(route_name="prueba2", output_dir=YAML_DIR)
