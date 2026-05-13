@@ -264,7 +264,9 @@ class ConsultaAmigable:
         button_xpath : str
             XPath del botón a hacer clic después de seleccionar la fila.
         """
-        await self._page.wait_for_timeout(150) # Se necesita una solución más robusta que esta
+        await self._page.wait_for_timeout(
+            150
+        )  # Se necesita una solución más robusta que esta
         await self._click_on_element(row_text, row=True)
         await self._click_on_element(button_text, row=False)
         self.level_index += 1
@@ -499,62 +501,144 @@ class ConsultaAmigable:
         path = Path(path)
         yaml_file = path if path.suffix == ".yaml" else path.with_suffix(".yaml")
 
-        tmp_script = (
-            Path(tempfile.gettempdir()) / f"playwright_script_{path.name}_{id(self)}.py"
+        await self._initialize_driver()
+
+        route_config = RouteConfig(
+            route_name=yaml_file.stem, output_path=str(yaml_file)
+        )
+        pending_level: dict = {"iterate": False, "extract_table": False, "fila": ""}
+        done = asyncio.Event()
+
+        await self._page.add_init_script("""
+            function injectPanel() {
+                if (document.getElementById('_ca_panel')) return;
+                const panel = document.createElement('div');
+                panel.id = '_ca_panel';
+                panel.style.cssText = `
+                    position: fixed; top: 10px; right: 10px; z-index: 99999;
+                    background: #222; padding: 10px; border-radius: 8px;
+                    display: flex; flex-direction: column; gap: 8px;
+                    font-family: sans-serif;
+                `;
+
+                const btnIterar = document.createElement('button');
+                btnIterar.textContent = '🔄 ITERAR';
+                btnIterar.style.cssText = 'padding: 8px 16px; background: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;';
+                btnIterar.onclick = () => window._ca_panel_action('iterar');
+
+                const btnScrapear = document.createElement('button');
+                btnScrapear.textContent = '📊 SCRAPEAR';
+                btnScrapear.style.cssText = 'padding: 8px 16px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;';
+                btnScrapear.onclick = () => window._ca_panel_action('scrapear');
+
+                const btnGuardar = document.createElement('button');
+                btnGuardar.textContent = '💾 GUARDAR';
+                btnGuardar.style.cssText = 'padding: 8px 16px; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;';
+                btnGuardar.onclick = () => window._ca_panel_action('guardar');
+
+                const btnSalir = document.createElement('button');
+                btnSalir.textContent = '🚪 SALIR';
+                btnSalir.style.cssText = 'padding: 8px 16px; background: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;';
+                btnSalir.onclick = () => window._ca_panel_action('salir');
+
+                panel.appendChild(btnIterar);
+                panel.appendChild(btnScrapear);
+                panel.appendChild(btnGuardar);
+                panel.appendChild(btnSalir);
+                document.body.appendChild(panel);
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', injectPanel);
+            } else {
+                injectPanel();
+            }
+        """)
+
+        async def handle_panel_action(action: str):
+            if action == "iterar":
+                pending_level["iterate"] = True
+                pending_level["fila"] = ""
+                self.logger.info("🔄 Marcado como ITERAR")
+                iframe = self._page.frame(Locators.main_frame)
+                first_row = (
+                    iframe.locator(Locators.table_data)
+                    .locator(Locators.text_rows)
+                    .first
+                )
+                await first_row.click()
+
+            elif action == "scrapear":
+                pending_level["extract_table"] = True
+                self.logger.info("📊 Marcado como SCRAPEAR")
+
+            elif action.startswith("row:"):
+                clicked_row = action.removeprefix("row:")
+                pending_level["fila"] = clicked_row
+                self.logger.info(f"📌 Fila seleccionada: '{clicked_row}'")
+
+            elif action.startswith("button:"):
+                clicked_button = action.removeprefix("button:")
+                route_config.levels.append(
+                    LevelConfig(
+                        name=f"Nivel {self.level_index}",
+                        button=clicked_button,
+                        fila=pending_level["fila"],
+                        iterate=pending_level["iterate"],
+                        extract_table=pending_level["extract_table"],
+                    )
+                )
+                self.level_index += 1
+                pending_level["iterate"] = False
+                pending_level["extract_table"] = False
+                pending_level["fila"] = ""
+                self.logger.info(
+                    f"✅ Nivel {self.level_index} grabado: botón='{clicked_button}'"
+                )
+
+            elif action == "guardar":
+                guardar_ruta_yaml(route_config, yaml_file)
+                self.logger.info(f"✅ Ruta guardada en {yaml_file}")
+
+            elif action == "salir":
+                if route_config.levels:
+                    guardar_ruta_yaml(route_config, yaml_file)
+                    self.logger.info(f"✅ Ruta guardada en {yaml_file}")
+                done.set()
+
+        await self._page.expose_function("_ca_panel_action", handle_panel_action)
+
+        async def inject_listeners():
+            iframe = self._page.frame(Locators.main_frame)
+            if iframe is None:
+                return
+            await iframe.evaluate("""() => {
+                document.querySelectorAll("td[align='left']").forEach(td => {
+                    if (td._ca_listener) return;
+                    td._ca_listener = true;
+                    td.addEventListener('click', () => {
+                        window.parent._ca_panel_action('row:' + td.innerText.trim());
+                    });
+                });
+
+                document.querySelectorAll("input[type='submit']").forEach(btn => {
+                    if (btn._ca_listener) return;
+                    btn._ca_listener = true;
+                    btn.addEventListener('click', () => {
+                        window.parent._ca_panel_action('button:' + btn.value.trim());
+                    });
+                });
+            }""")
+
+        self._page.on(
+            "framenavigated", lambda frame: asyncio.ensure_future(inject_listeners())
         )
 
+        await self._navigate_to_url(2024)
+        await done.wait()
         try:
-            self.logger.info("\n🎬 Iniciando grabación con Playwright Codegen...")
-            self.logger.info("Cierra el navegador cuando termines de grabar\n")
-
-            # Capturar el código generado en stdout (sin archivo)
-            subprocess.run(
-                [
-                    "playwright",
-                    "codegen",
-                    "--target",
-                    "python-async",
-                    "-o",
-                    str(tmp_script),
-                    # "--viewport-size", "1000,720",
-                    self.URL_ANUAL.format("2024"),
-                ],
-                capture_output=False,
-            )
-
-            script_code = tmp_script.read_text(encoding="utf-8")
-
-        finally:
-            if tmp_script.exists():
-                tmp_script.unlink()
-            self.logger.debug(f"Archivo temporal eliminado: {tmp_script}")
-
-        self.logger.info("Creando configuración de ruta...")
-
-        route_config = RouteConfig.from_script_string(
-            script_code=script_code, yaml_file=yaml_file
-        )
-
-        # Verificar que se extrajeron niveles
-        if not route_config.levels:
-            self.logger.warning("No se detectaron niveles en el script")
-
-        # Guardar YAML
-        guardar_ruta_yaml(route_config, yaml_file)
-        self.logger.info(f"Ruta guardada en: {yaml_file.resolve()}")
-
-        # # CLI interactivo para configurar
-        # print("\n" + "=" * 60)
-        # print("📝 CONFIGURACIÓN DE NIVELES")
-        # print("=" * 60)
-
-        # for level in route_config.levels:
-        #     print(f"\n{level.name}")
-        #     print(f"  Fila: {level.fila or '(ninguna)'}")
-        #     print(f"  Botón: {level.button or '(ninguno)'}")
-
-        #     level.iterate = input("  ¿ITERAR? (s/n): ").lower() == "s"
-        #     level.extract_table = input("  ¿SCRAPEAR? (s/n): ").lower() == "s"
+            await self._cerrar_navegador()
+        except Exception:
+            pass
 
     def grabar_ruta(self, path: str | Path = "."):
         """

@@ -1,0 +1,8 @@
+route_name: ruta_personalizada
+output_path: C:\Users\micha\OneDrive\Python\Web-Scraping-Consulta-Amigable-MEF\tests\yamls\ruta_personalizada.yaml
+levels:
+- name: Nivel 0
+  button: Gob.Loc./Mancom.
+  fila: TOTAL
+  iterate: false
+  extract_table: false
