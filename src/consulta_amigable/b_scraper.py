@@ -155,6 +155,7 @@ class ConsultaAmigable:
         for i, fila in enumerate(filas):
             datos = await fila.locator("td").all_inner_texts()
             datos = [dato.replace(",", "").strip() for dato in datos]
+            datos = [dato for dato in datos if dato] # Eliminar vacíos
 
             # Agregar datos solo si la fila tiene contenido
             if datos:
@@ -163,7 +164,7 @@ class ConsultaAmigable:
 
         return datos_tabla
 
-    async def _get_final_headers(self) -> list:
+    async def _get_final_headers(self) -> None:
         """
         Extrae encabezados manteniendo el orden de la tabla, omitiendo la primera columna
         vacía (botón) y obteniendo los niveles inferiores cuando hay agrupación.
@@ -205,8 +206,8 @@ class ConsultaAmigable:
                     else:  # Si no hay agrupación, tomar el texto directamente
                         encabezado = await td.inner_text()
                         self._headers.append(encabezado.strip())
-
-                self.logger.info(f"Encabezados extraídos: {self._headers}")
+                self._headers = ["Año", ""] + self._headers
+                self.logger.debug(f"Encabezados extraídos: [{len(self._headers)}]: {self._headers}")
 
             except Exception as e:
                 print(f"Error al obtener encabezados: {e}")
@@ -221,7 +222,6 @@ class ConsultaAmigable:
         if level.extract_table:
             if not self._headers:
                 await self._get_final_headers()
-
             # self.logger.info(f"📊 Extrayendo datos de la tabla: {self.route_config.levels[self.level_index].name}")
             table_data = await self._extract_table_data()
 
@@ -232,6 +232,7 @@ class ConsultaAmigable:
                     + [self._context[level] for level in self._context.keys()]
                     + row
                 )
+                self.logger.debug(f"Fila formateada: {formatted_row}")
                 self._extracted_data.append(formatted_row)
 
     async def _navigate_levels(self) -> None:
@@ -366,6 +367,7 @@ class ConsultaAmigable:
         """
         Guarda los datos extraídos en un archivo Excel.
         """
+        self.logger.debug(f"Primera fila ({len(self._extracted_data[0])}): {self._extracted_data[0]}")
         import pandas as pd
 
         df = pd.DataFrame(self._extracted_data, columns=self._headers)
@@ -494,7 +496,6 @@ class ConsultaAmigable:
             # Guardar los datos finales si se obtuvieron datos completos
             if self._extracted_data:
                 self.logger.info("💾 Guardando datos...")
-                self._headers = ["Año", ""] + self._headers
                 output_path = self._save_data(output_dir=Path(output_dir))
 
             await self._cerrar_navegador()
