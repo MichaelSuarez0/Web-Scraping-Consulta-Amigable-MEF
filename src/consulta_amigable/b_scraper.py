@@ -245,8 +245,9 @@ class ConsultaAmigable:
         """
         level = self.route_config.levels[self.level_index]
 
-        await self._assert_extraction()
-        # Aquí
+        if not level.iterate:
+            await self._assert_extraction()
+
         if level.button:
             if level.fila:
                 await self._navigate_level_simple(level.fila, level.button)
@@ -271,7 +272,7 @@ class ConsultaAmigable:
         await self._click_on_element(button_text, row=False)
         self.level_index += 1
 
-    async def _iterate_over_levels(self, button_text: str) -> list:
+    async def _iterate_over_levels(self, button_text: str) -> None:
         """
         Navega a través de cada fila en el nivel actual, guardando el contexto,
         extrayendo datos y manejando la navegación hacia adelante y atrás para
@@ -306,8 +307,8 @@ class ConsultaAmigable:
             self._context[level.name] = element_name  # Guardar el nombre en el contexto
             self.logger.info(f"➡️ Entrando en: {element_name}")
 
-            await self._navigate_level_simple(element_name, button_text)
             levels_left = len(self.route_config.levels) - (self.level_index + 1)
+            await self._navigate_level_simple(element_name, button_text)
 
             if levels_left > 0:
                 for _ in range(levels_left):
@@ -323,6 +324,9 @@ class ConsultaAmigable:
                     self._clicks_number += 1
                 self.level_index -= levels_left
             else:
+                self.level_index -= 1
+                await self._assert_extraction()
+                self.level_index += 1
                 await iframe.wait_for_selector(Locators.table_data)
                 try:
                     await self._page.go_back(timeout=100)
@@ -482,7 +486,9 @@ class ConsultaAmigable:
 
             # Iterar sobre los años y extraer datos
             await self._extract_data_by_year()
-
+        except Exception as e:
+            self.logger.error(f"Error durante extracción: {e}", exc_info=True)
+            raise
         finally:
             output_path = None
             # Guardar los datos finales si se obtuvieron datos completos
