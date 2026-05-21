@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10" # Por los type hints
 
 dependencies = [
+    "openpyxl>=3.1.5",
     "pandas",
     "playwright",
     "pydantic>=2.12.5",
