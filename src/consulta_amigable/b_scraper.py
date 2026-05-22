@@ -206,8 +206,8 @@ class ConsultaAmigable:
                     else:  # Si no hay agrupación, tomar el texto directamente
                         encabezado = await td.inner_text()
                         self._headers.append(encabezado.strip())
-                self._headers = ["Año", ""] + self._headers
-                self.logger.debug(f"Encabezados extraídos: [{len(self._headers)}]: {self._headers}")
+                self._headers = ["Año"] + list(self._context.keys()) + self._headers
+                self.logger.info(f"Encabezados extraídos: [{len(self._headers)}]: {self._headers}")
 
             except Exception as e:
                 print(f"Error al obtener encabezados: {e}")
@@ -232,7 +232,9 @@ class ConsultaAmigable:
                     + [self._context[level] for level in self._context.keys()]
                     + row
                 )
-                self.logger.debug(f"Fila formateada: {formatted_row}")
+                if len(self._extracted_data) == 0:  # solo la primera vez
+                    self.logger.info(f"Primera fila ({len(formatted_row)}): {formatted_row}")
+                # self.logger.debug(f"Fila formateada: {formatted_row}")
                 self._extracted_data.append(formatted_row)
 
     async def _navigate_levels(self) -> None:
@@ -267,7 +269,7 @@ class ConsultaAmigable:
             XPath del botón a hacer clic después de seleccionar la fila.
         """
         await self._page.wait_for_timeout(
-            150
+        160
         )  # Se necesita una solución más robusta que esta
         await self._click_on_element(row_text, row=True)
         await self._click_on_element(button_text, row=False)
